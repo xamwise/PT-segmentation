@@ -4,6 +4,9 @@ from torch.utils.data import Dataset
 import torch
 from pointnet_util import farthest_point_sample, pc_normalize
 import json
+import open3d as o3d
+
+from provider import train_test_split, get_example_list
 
 
 class ModelNetDataLoader(Dataset):
@@ -161,11 +164,67 @@ class PartNormalDataset(Dataset):
 
     def __len__(self):
         return len(self.datapath)
+    
+    
+    
+    
+class FFMaachiningModels(Dataset):
+    def __init__(self, examples: list, datapath = './data', num_points = 20000, num_classes = 16) -> None:
+        
+        self.datapath = datapath
+        self.num_points = num_points
+        self.num_classes = num_classes
+        self.point_datapath = f"{self.datapath}/clouds"
+        self.stl_datapath =  f"{self.datapath}/all_stl"
+        self.label_path = f"{self.datapath}/labels"
+        self.examples = examples
+        
+        
+    def __len__(self):
+        return len(self.examples)
+    
+    def __getitem__(self, index):
+        
+        pcd = o3d.io.read_point_cloud(f"{self.point_datapath}/{self.examples[index]}.pcd")
+        pointlabels = []
+        
+        with open(f"{self.label_path}/{self.examples[index]}.txt") as f:
+            for line in f.readlines():
+                # strs = line.split(' ')
+                pointlabels.append(int(line))
+                
+        points = np.asarray(pcd.points)
+        normals = np.asarray(pcd.normals)
+            
+        classes = list(set(pointlabels))
+        print(classes)
+        print(examples[index])
+        
+        class_encoded = np.zeros(self.num_classes)
+        
+        for ind in classes:
+            class_encoded[ind] = 1
+            
+        
+        return points, normals, pointlabels, class_encoded
+        
 
-
+    
+    
 if __name__ == '__main__':
-    data = ModelNetDataLoader('modelnet40_normal_resampled/', split='train', uniform=False, normal_channel=True)
-    DataLoader = torch.utils.data.DataLoader(data, batch_size=12, shuffle=True)
-    for point,label in DataLoader:
-        print(point.shape)
-        print(label.shape)
+    
+    # data = ModelNetDataLoader('modelnet40_normal_resampled/', split='train', uniform=False, normal_channel=True)
+    # DataLoader = torch.utils.data.DataLoader(data, batch_size=12, shuffle=True)
+    # for point,label in DataLoader:
+    #     print(point.shape)
+    #     print(label.shape)
+    examples = get_example_list('./data/labels')
+    train, test = train_test_split(examples)
+        
+    data = FFMaachiningModels(train)
+    Dataloader = torch.utils.data.DataLoader(data, batch_size=12, shuffle=True)
+
+    for points, normals, labels, classes in Dataloader:
+        print(classes)
+        
+        break

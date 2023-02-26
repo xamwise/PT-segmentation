@@ -1,4 +1,7 @@
 import numpy as np
+import math
+import random
+import os
 
 def normalize_data(batch_data):
     """ Normalize the batch data, use coordinates of the block centered at origin,
@@ -246,5 +249,82 @@ def random_point_dropout(batch_pc, max_dropout_ratio=0.875):
         if len(drop_idx)>0:
             batch_pc[b,drop_idx,:] = batch_pc[b,0,:] # set to the first point
     return batch_pc
+
+
+def get_example_list(path):
+    return [x.split('.')[0] for x in os.listdir(path)]
+
+
+
+def datapoint_generator(num_range):
+    indices = np.arange(num_range)
+    max = len(indices)
+    
+    for i, item in enumerate(indices):
+        remove_index = random.randint(0,max-1-i)
+        # print(indices)
+        removed = indices[remove_index]
+        indices = np.delete(indices, remove_index)
+        yield removed
+        
+
+
+def train_test_split(examples, split_ratio = 0.05, val=False, val_ratio = 0.05):
+    
+    
+    train_set = examples.copy()
+    test_set = []
+    test_indices = []
+    num_test = math.floor(len(examples)*split_ratio)
+    
+    for i, element in enumerate(datapoint_generator(len(examples))):
+        
+        if i <= num_test:
+            test_set.append(examples[element])
+            test_indices.append(element)
+        else:
+            break
+        
+    test_indices.sort(reverse=True)
+    
+    for index in test_indices:
+        
+        train_set.pop(index)
+        
+    if val:
+        val_set = []
+        val_indices = []
+        num_val = math.floor(len(examples)*val_ratio)
+        
+        for i, element in enumerate(datapoint_generator(len(train_set))):
+            
+            if i <= num_val:
+                val_set.append(train_set[element])
+                val_indices.append(element)
+            else:
+                break
+            
+        val_indices.sort(reverse=True)
+        
+        for index in val_indices:
+            train_set.pop(index)
+        
+        return train_set, test_set, val_set
+    
+    else:
+        return train_set, test_set
+        
+    
+# def get_data_(batch, examples, labels):
+    
+#     return [np.asarray(examples[index]) for index in batch], [np.asarray(labels[index]) for index in batch]
+
+
+
+if __name__ == '__main__':
+    examples = get_example_list('./data/labels')
+    
+    train, test, val = train_test_split(examples, val=True)
+    
 
 
