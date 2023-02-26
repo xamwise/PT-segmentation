@@ -49,19 +49,19 @@ class TransitionUp(nn.Module):
 class Backbone(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        npoints, nblocks, nneighbor, n_c, d_points = cfg.num_point, cfg.model.nblocks, cfg.model.nneighbor, cfg.num_class, cfg.input_dim
+        npoints, nblocks, nneighbor, n_c, d_points = cfg.num_point, cfg.nblocks, cfg.nneighbor, cfg.num_class, cfg.input_dim
         self.fc1 = nn.Sequential(
             nn.Linear(d_points, 32),
             nn.ReLU(),
             nn.Linear(32, 32)
         )
-        self.transformer1 = TransformerBlock(32, cfg.model.transformer_dim, nneighbor)
+        self.transformer1 = TransformerBlock(32, cfg.transformer_dim, nneighbor)
         self.transition_downs = nn.ModuleList()
         self.transformers = nn.ModuleList()
         for i in range(nblocks):
             channel = 32 * 2 ** (i + 1)
             self.transition_downs.append(TransitionDown(npoints // 4 ** (i + 1), nneighbor, [channel // 2 + 3, channel, channel]))
-            self.transformers.append(TransformerBlock(channel, cfg.model.transformer_dim, nneighbor))
+            self.transformers.append(TransformerBlock(channel, cfg.transformer_dim, nneighbor))
         self.nblocks = nblocks
     
     def forward(self, x):
@@ -80,7 +80,7 @@ class PointTransformerCls(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.backbone = Backbone(cfg)
-        npoints, nblocks, nneighbor, n_c, d_points = cfg.num_point, cfg.model.nblocks, cfg.model.nneighbor, cfg.num_class, cfg.input_dim
+        npoints, nblocks, nneighbor, n_c, d_points = cfg.num_point, cfg.nblocks, cfg.nneighbor, cfg.num_class, cfg.input_dim
         self.fc2 = nn.Sequential(
             nn.Linear(32 * 2 ** nblocks, 256),
             nn.ReLU(),
@@ -100,7 +100,7 @@ class PointTransformerSeg(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         self.backbone = Backbone(cfg)
-        npoints, nblocks, nneighbor, n_c, d_points = cfg.num_point, cfg.model.nblocks, cfg.model.nneighbor, cfg.num_class, cfg.input_dim
+        npoints, nblocks, nneighbor, n_c, d_points = cfg.num_point, cfg.nblocks, cfg.nneighbor, cfg.num_class, cfg.input_dim
         self.fc2 = nn.Sequential(
             nn.Linear(32 * 2 ** nblocks, 512),
             nn.ReLU(),
@@ -108,14 +108,14 @@ class PointTransformerSeg(nn.Module):
             nn.ReLU(),
             nn.Linear(512, 32 * 2 ** nblocks)
         )
-        self.transformer2 = TransformerBlock(32 * 2 ** nblocks, cfg.model.transformer_dim, nneighbor)
+        self.transformer2 = TransformerBlock(32 * 2 ** nblocks, cfg.transformer_dim, nneighbor)
         self.nblocks = nblocks
         self.transition_ups = nn.ModuleList()
         self.transformers = nn.ModuleList()
         for i in reversed(range(nblocks)):
             channel = 32 * 2 ** i
             self.transition_ups.append(TransitionUp(channel * 2, channel, channel))
-            self.transformers.append(TransformerBlock(channel, cfg.model.transformer_dim, nneighbor))
+            self.transformers.append(TransformerBlock(channel, cfg.transformer_dim, nneighbor))
 
         self.fc3 = nn.Sequential(
             nn.Linear(32, 64),

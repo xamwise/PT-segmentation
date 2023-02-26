@@ -15,20 +15,55 @@ import numpy as np
 
 from pathlib import Path
 from tqdm import tqdm
-from dataset import PartNormalDataset
+from dataset import FFMaachiningModels
 import hydra
 import omegaconf
+from dataclasses import dataclass
+from models.Hengshuang.model import PointTransformerSeg
+from torchsummary import summary
 
 
-seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 'Rocket': [41, 42, 43],
-               'Car': [8, 9, 10, 11], 'Laptop': [28, 29], 'Cap': [6, 7], 'Skateboard': [44, 45, 46], 'Mug': [36, 37],
-               'Guitar': [19, 20, 21], 'Bag': [4, 5], 'Lamp': [24, 25, 26, 27], 'Table': [47, 48, 49],
-               'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
-seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
-for cat in seg_classes.keys():
-    for label in seg_classes[cat]:
-        seg_label_to_cat[label] = cat
+# Training Params
 
+BATCH_SIZE =  8
+MAX_EPOCH =  200
+LEARNING_RATE = 1e-3
+GPU = 0
+NUM_POINT = 20000
+OPTIM = 'Adam'
+WEIGHT_DECAY = 1e-4
+NORMAL = True
+LR_DECAY = 0.5
+STEP_SIZE = 20
+TEST_SPLIT = 0.05
+VAL_SPLIT = 0.05
+
+
+# Network Parameters
+
+NN_NEIGHBOURS = 16
+N_BLOCKS = 4
+TRANSFORMER_DIM = 512
+
+
+
+# seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 'Rocket': [41, 42, 43],
+#                'Car': [8, 9, 10, 11], 'Laptop': [28, 29], 'Cap': [6, 7], 'Skateboard': [44, 45, 46], 'Mug': [36, 37],
+#                'Guitar': [19, 20, 21], 'Bag': [4, 5], 'Lamp': [24, 25, 26, 27], 'Table': [47, 48, 49],
+#                'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
+# seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+# for cat in seg_classes.keys():
+#     for label in seg_classes[cat]:
+#         seg_label_to_cat[label] = cat
+
+@dataclass
+class model_params:
+    num_point: int = 20000
+    nblocks: int = 4
+    nneighbor: int = 16
+    num_class: int = 16
+    input_dim: int = 22
+    transformer_dim: int = 512
 
 def inplace_relu(m):
     classname = m.__class__.__name__
@@ -42,32 +77,60 @@ def to_categorical(y, num_classes):
         return new_y.cuda()
     return new_y
 
-@hydra.main(config_path='config', config_name='partseg')
-def main(args):
-    omegaconf.OmegaConf.set_struct(args, False)
+def main():
+    
+    params = model_params()
 
-    '''HYPER PARAMETER'''
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(GPU)
     logger = logging.getLogger(__name__)
 
-    print(args.pretty())
-
+        
     root = hydra.utils.to_absolute_path('data/shapenetcore_partanno_segmentation_benchmark_v0_normal/')
 
-    TRAIN_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='trainval', normal_channel=args.normal)
-    trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True)
-    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', normal_channel=args.normal)
-    testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=10)
+    # TRAIN_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='trainval', normal_channel=args.normal)
+    # trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True)
+    # TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', normal_channel=args.normal)
+    # testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=10)
+    
+    examples = provider.get_example_list('./data/labels')
+    
+    train, test, val = provider.train_test_split(examples, val=True)
+    
+    TRAIN_DATA = FFMaachiningModels(train)
+    trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=BATCH_SIZE, shuffle=True)
+    VAL_DATA = FFMaachiningModels(val)
+    valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=BATCH_SIZE, shuffle=True)
+    TEST_DATA = FFMaachiningModels(test)
+    testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=BATCH_SIZE, shuffle=True)
+            
+    
+    
 
     '''MODEL LOADING'''
-    args.input_dim = (6 if args.normal else 3) + 16
-    args.num_class = 50
-    num_category = 16
-    num_part = args.num_class
-    shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
+    input_dim = (6 if NORMAL else 3) + 16
+    num_class = 16
+    num_part = num_class
+    
+    params.input_dim = input_dim
+    params.num_class = num_class
+    params.nblocks = N_BLOCKS
+    # params.num_point = NUM_POINT
+    params.nneighbor = NN_NEIGHBOURS
+    params.transformer_dim = TRANSFORMER_DIM
+    
 
-    classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
+    # classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(device)
+   
+    classifier = PointTransformerSeg(params).to(device)
+    
     criterion = torch.nn.CrossEntropyLoss()
+    
+    summary(classifier, (100, 22))    
+    
+    exit()
 
     try:
         checkpoint = torch.load('best_model.pth')
