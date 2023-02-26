@@ -16,8 +16,8 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from dataset import FFMaachiningModels
-import hydra
-import omegaconf
+# import hydra
+# import omegaconf
 from dataclasses import dataclass
 from models.Hengshuang.model import PointTransformerSeg
 from torchsummary import summary
@@ -85,7 +85,7 @@ def main():
     logger = logging.getLogger(__name__)
 
         
-    root = hydra.utils.to_absolute_path('data/shapenetcore_partanno_segmentation_benchmark_v0_normal/')
+    #root = hydra.utils.to_absolute_path('data/shapenetcore_partanno_segmentation_benchmark_v0_normal/')
 
     # TRAIN_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='trainval', normal_channel=args.normal)
     # trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True)
@@ -127,6 +127,8 @@ def main():
     classifier = PointTransformerSeg(params).to(device)
     
     criterion = torch.nn.CrossEntropyLoss()
+    
+
     
     summary(classifier, (100, 22))    
     

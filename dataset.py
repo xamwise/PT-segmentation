@@ -197,13 +197,14 @@ class FFMaachiningModels(Dataset):
         normals = np.asarray(pcd.normals)
             
         classes = list(set(pointlabels))
-        print(classes)
-        print(examples[index])
+    
         
         class_encoded = np.zeros(self.num_classes)
         
         for ind in classes:
             class_encoded[ind] = 1
+            
+        pointlabels = np.array(pointlabels)
             
         
         return points, normals, pointlabels, class_encoded
