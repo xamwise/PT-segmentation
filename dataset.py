@@ -169,7 +169,7 @@ class PartNormalDataset(Dataset):
     
     
 class FFMaachiningModels(Dataset):
-    def __init__(self, examples: list, datapath = './data', num_points = 20000, num_classes = 16) -> None:
+    def __init__(self, examples: list, datapath = './data', num_points = 20000, num_classes = 16, normals = True) -> None:
         
         self.datapath = datapath
         self.num_points = num_points
@@ -195,19 +195,21 @@ class FFMaachiningModels(Dataset):
                 
         points = np.asarray(pcd.points)
         normals = np.asarray(pcd.normals)
-            
         classes = list(set(pointlabels))
-    
-        
         class_encoded = np.zeros(self.num_classes)
         
         for ind in classes:
             class_encoded[ind] = 1
             
         pointlabels = np.array(pointlabels)
-            
         
-        return points, normals, pointlabels, class_encoded
+        if normals:
+            pointdata = np.concatenate((points, normals), axis=1)
+            return pointdata, class_encoded, pointlabels 
+        else:
+            return points, class_encoded, pointlabels 
+
+            
         
 
     
@@ -225,7 +227,10 @@ if __name__ == '__main__':
     data = FFMaachiningModels(train)
     Dataloader = torch.utils.data.DataLoader(data, batch_size=12, shuffle=True)
 
-    for points, normals, labels, classes in Dataloader:
-        print(classes)
+    for points, classes, seg in Dataloader:
+        
+        print(points.shape)
+        print(classes.shape)
+        print(seg.shape)
         
         break
