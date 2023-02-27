@@ -28,9 +28,9 @@ seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 
                'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
 seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
-seg_classes = {'None': 0, 'Hole': 1, 'Through_Hole': 2, 'Chamfer': 3, 'Fillet': 4, 'Round': 5, 'Passage': 6,
-               'Through_Slot': 7, 'Slot': 8, 'Pocket': 9, 'Step': 10, 'Through_Step': 11, 'Blind_Slot': 12,
-               'Gear': 13, 'Thread': 14, 'Boss': 15}
+seg_classes = {'None': [0], 'Hole': [1], 'Through_Hole': [2], 'Chamfer': [3], 'Fillet': [4], 'Round': [5], 'Passage': [6],
+               'Through_Slot': [7], 'Slot': [8], 'Pocket': [9], 'Step': [10], 'Through_Step': [11], 'Blind_Slot': [12],
+               'Gear': [13], 'Thread': [14], 'Boss': [15]}
 seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
 
