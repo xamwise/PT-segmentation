@@ -5,7 +5,7 @@ import torch
 from pointnet_util import farthest_point_sample, pc_normalize
 import json
 import open3d as o3d
-import pptk
+# import pptk
 
 from provider import train_test_split, get_example_list
 
