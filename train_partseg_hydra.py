@@ -16,6 +16,8 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from dataset import PartNormalDataset
+from dataset import FFMaachiningModels
+
 import hydra
 import omegaconf
 
@@ -25,6 +27,13 @@ seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 
                'Guitar': [19, 20, 21], 'Bag': [4, 5], 'Lamp': [24, 25, 26, 27], 'Table': [47, 48, 49],
                'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
 seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+
+seg_classes = {'None': 0, 'Hole': 1, 'Through_Hole': 2, 'Chamfer': 3, 'Fillet': 4, 'Round': 5, 'Passage': 6,
+               'Through_Slot': 7, 'Slot': 8, 'Pocket': 9, 'Step': 10, 'Through_Step': 11, 'Blind_Slot': 12,
+               'Gear': 13, 'Thread': 14, 'Boss': 15}
+seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+
+
 for cat in seg_classes.keys():
     for label in seg_classes[cat]:
         seg_label_to_cat[label] = cat
@@ -52,16 +61,37 @@ def main(args):
 
     print(args)#.pretty())
 
-    root = hydra.utils.to_absolute_path('data/shapenetcore_partanno_segmentation_benchmark_v0_normal/')
+    # root = hydra.utils.to_absolute_path('data/shapenetcore_partanno_segmentation_benchmark_v0_normal/')
 
-    TRAIN_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='trainval', normal_channel=args.normal)
-    trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True)
-    TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', normal_channel=args.normal)
-    testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=10)
+    # TRAIN_DATASET2 = PartNormalDataset(root=root, npoints=args.num_point, split='trainval', normal_channel=args.normal)
+    # trainDataLoader2 = torch.utils.data.DataLoader(TRAIN_DATASET2, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True)
+    # TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', normal_channel=args.normal)
+    # testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=10)
+
+    examples = provider.get_example_list('./data/labels')
+    
+    train, test, val = provider.train_test_split(examples, val=True)
+    
+    TRAIN_DATA = FFMaachiningModels(train, num_points=args.num_point)
+    trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
+    VAL_DATA = FFMaachiningModels(val, num_points=args.num_point)
+    valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
+    TEST_DATA = FFMaachiningModels(test, num_points=args.num_point)
+    testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
+
+    
+
+    # for points, classes, seg in trainDataLoader:
+        
+    #     print(points.shape)
+    #     print(classes.shape)
+    #     print(seg.shape)
+        
+    #     exit()
 
     '''MODEL LOADING'''
     args.input_dim = (6 if args.normal else 3) + 16
-    args.num_class = 50
+    args.num_class = 16
     num_category = 16
     num_part = args.num_class
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
@@ -70,7 +100,7 @@ def main(args):
     criterion = torch.nn.CrossEntropyLoss()
 
     try:
-        checkpoint = torch.load('best_model.pth')
+        checkpoint = torch.load('./best_models/best_model.pth')
         start_epoch = checkpoint['epoch']
         classifier.load_state_dict(checkpoint['model_state_dict'])
         logger.info('Use pretrain model')
@@ -134,7 +164,8 @@ def main(args):
             points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
             optimizer.zero_grad()
 
-            seg_pred = classifier(torch.cat([points, to_categorical(label, num_category).repeat(1, points.shape[1], 1)], -1))
+            # seg_pred = classifier(torch.cat([points, to_categorical(label, num_category).repeat(1, points.shape[1], 1)], -1))
+            seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
             seg_pred = seg_pred.contiguous().view(-1, num_part)
             target = target.view(-1, 1)[:, 0]
             pred_choice = seg_pred.data.max(1)[1]
@@ -163,10 +194,10 @@ def main(args):
 
             classifier = classifier.eval()
 
-            for batch_id, (points, label, target) in tqdm(enumerate(testDataLoader), total=len(testDataLoader), smoothing=0.9):
+            for batch_id, (points, label, target) in tqdm(enumerate(valDataLoader), total=len(valDataLoader), smoothing=0.9):
                 cur_batch_size, NUM_POINT, _ = points.size()
                 points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
-                seg_pred = classifier(torch.cat([points, to_categorical(label, num_category).repeat(1, points.shape[1], 1)], -1))
+                seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
                 cur_pred_val = seg_pred.cpu().data.numpy()
                 cur_pred_val_logits = cur_pred_val
                 cur_pred_val = np.zeros((cur_batch_size, NUM_POINT)).astype(np.int32)
@@ -217,7 +248,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
-            savepath = 'best_model.pth'
+            savepath = 'best_models/best_model.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,

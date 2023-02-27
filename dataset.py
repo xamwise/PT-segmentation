@@ -225,30 +225,54 @@ class FFMaachiningModels(Dataset):
         else:
             return points, class_encoded, pointlabels 
 
-            
+
+def to_categorical(y, num_classes):
+    """ 1-hot encodes a tensor """
+    new_y = torch.eye(num_classes)[y.cpu().data.numpy(),]
+    if (y.is_cuda):
+        return new_y.cuda()
+    return new_y
             
     
 if __name__ == '__main__':
     
-    # data = ModelNetDataLoader('modelnet40_normal_resampled/', split='train', uniform=False, normal_channel=True)
-    # DataLoader = torch.utils.data.DataLoader(data, batch_size=12, shuffle=True)
-    # for point,label in DataLoader:
+    # data = PartNormalDataset()
+    # DataLoader = torch.utils.data.DataLoader(data, batch_size=2, shuffle=True)
+    # for point,label, seg in DataLoader:
     #     print(point.shape)
     #     print(label.shape)
+    #     print(seg.shape)
+        
+    #     print(label)
+        
+    #     new_label = to_categorical(label, 16).repeat(1, point.shape[1], 1)
+        
+    #     print(new_label)
+        
+    #     exit()
+    
+    
     examples = get_example_list('./data/labels')
     train, test = train_test_split(examples)
         
     data = FFMaachiningModels(train, num_points=512)
-    Dataloader = torch.utils.data.DataLoader(data, batch_size=12, shuffle=True)
+    Dataloader = torch.utils.data.DataLoader(data, batch_size=2, shuffle=True)
 
     for points, classes, seg in Dataloader:
         
         print(points.shape)
-        print(classes.shape)
+        print(classes)
         print(seg.shape)
-        # print(points2.shape)
         
-        v = pptk.viewer(points[0][:,0:3])
+        new_classes = torch.unsqueeze(classes, 1)
+        
+        print(new_classes.shape)
+        
+        print(torch.unsqueeze(classes, 1).repeat(1, points.shape[1], 1))
+        
+        
+        
+        # v = pptk.viewer(points[0][:,0:3])
         
         # w = pptk.viewer(points2[0])
         
