@@ -5,6 +5,7 @@ import torch
 from pointnet_util import farthest_point_sample, pc_normalize
 import json
 import open3d as o3d
+import pptk
 
 from provider import train_test_split, get_example_list
 
@@ -169,7 +170,7 @@ class PartNormalDataset(Dataset):
     
     
 class FFMaachiningModels(Dataset):
-    def __init__(self, examples: list, datapath = './data', num_points = 20000, num_classes = 16, normals = True) -> None:
+    def __init__(self, examples: list, datapath = './data', num_points = 20000, num_classes = 16, is_normals = True) -> None:
         
         self.datapath = datapath
         self.num_points = num_points
@@ -178,6 +179,7 @@ class FFMaachiningModels(Dataset):
         self.stl_datapath =  f"{self.datapath}/all_stl"
         self.label_path = f"{self.datapath}/labels"
         self.examples = examples
+        self.is_normals = is_normals
         
         
     def __len__(self):
@@ -203,16 +205,28 @@ class FFMaachiningModels(Dataset):
             
         pointlabels = np.array(pointlabels)
         
-        if normals:
+        if self.num_points != 20000:
+            
+            choice = np.random.choice(len(pointlabels), self.num_points, replace=False)
+            # resample
+            points = points[choice, :]
+            normals = normals[choice, :]
+            pointlabels = pointlabels[choice]
+            
+            # ratio = int(20000/self.num_points)
+            # if ratio > 1:
+            #     points = points[::ratio]
+            #     normals = normals[::ratio]
+            #     pointlabels = pointlabels[::ratio]
+        
+        if self.is_normals:
             pointdata = np.concatenate((points, normals), axis=1)
             return pointdata, class_encoded, pointlabels 
         else:
             return points, class_encoded, pointlabels 
 
             
-        
-
-    
+            
     
 if __name__ == '__main__':
     
@@ -224,7 +238,7 @@ if __name__ == '__main__':
     examples = get_example_list('./data/labels')
     train, test = train_test_split(examples)
         
-    data = FFMaachiningModels(train)
+    data = FFMaachiningModels(train, num_points=512)
     Dataloader = torch.utils.data.DataLoader(data, batch_size=12, shuffle=True)
 
     for points, classes, seg in Dataloader:
@@ -232,5 +246,10 @@ if __name__ == '__main__':
         print(points.shape)
         print(classes.shape)
         print(seg.shape)
+        # print(points2.shape)
+        
+        v = pptk.viewer(points[0][:,0:3])
+        
+        # w = pptk.viewer(points2[0])
         
         break
