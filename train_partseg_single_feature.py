@@ -82,7 +82,7 @@ def main(args):
     #     exit()
 
     '''MODEL LOADING'''
-    args.input_dim = (6 if args.normal else 3) #+ 16
+    args.input_dim = (6 if args.normal else 3) #+ 25
     args.num_class = 25
     num_category = 25
     num_part = args.num_class
@@ -156,7 +156,7 @@ def main(args):
             points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
             optimizer.zero_grad()
 
-            # seg_pred = classifier(torch.cat([points, to_categorical(label, num_category).repeat(1, points.shape[1], 1)], -1))
+            # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
             seg_pred = classifier(points)
             seg_pred = seg_pred.contiguous().view(-1, num_part)
             target = target.view(-1, 1)[:, 0]
@@ -189,6 +189,8 @@ def main(args):
             for batch_id, (points, label, target) in tqdm(enumerate(valDataLoader), total=len(valDataLoader), smoothing=0.9):
                 cur_batch_size, NUM_POINT, _ = points.size()
                 points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
+                # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
+
                 seg_pred = classifier(points)
                 cur_pred_val = seg_pred.cpu().data.numpy()
                 cur_pred_val_logits = cur_pred_val
@@ -240,7 +242,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
-            savepath = 'best_models/best_model_faeturenet_512.pth'
+            savepath = 'best_models/best_model_faeturenet_1024.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,

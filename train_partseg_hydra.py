@@ -90,7 +90,7 @@ def main(args):
     #     exit()
 
     '''MODEL LOADING'''
-    args.input_dim = (6 if args.normal else 3) + 16
+    args.input_dim = (6 if args.normal else 3) #+ 16
     args.num_class = 16
     num_category = 16
     num_part = args.num_class
@@ -165,7 +165,9 @@ def main(args):
             optimizer.zero_grad()
 
             # seg_pred = classifier(torch.cat([points, to_categorical(label, num_category).repeat(1, points.shape[1], 1)], -1))
-            seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
+            # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
+            seg_pred = classifier(points)
+
             seg_pred = seg_pred.contiguous().view(-1, num_part)
             target = target.view(-1, 1)[:, 0]
             pred_choice = seg_pred.data.max(1)[1]
@@ -197,7 +199,11 @@ def main(args):
             for batch_id, (points, label, target) in tqdm(enumerate(valDataLoader), total=len(valDataLoader), smoothing=0.9):
                 cur_batch_size, NUM_POINT, _ = points.size()
                 points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
-                seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
+                
+                # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
+                seg_pred = classifier(points)
+
+        
                 cur_pred_val = seg_pred.cpu().data.numpy()
                 cur_pred_val_logits = cur_pred_val
                 cur_pred_val = np.zeros((cur_batch_size, NUM_POINT)).astype(np.int32)
