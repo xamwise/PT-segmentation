@@ -255,9 +255,15 @@ class FeaturenetSingle(Dataset):
                 
         points = np.asarray(pcd.points)
         normals = np.asarray(pcd.normals)
-        classes = int(self.examples[index].split('_')[0])
+        # classes = int(self.examples[index].split('_')[0])
+        
+        classes = list(set(pointlabels))
         class_encoded = np.zeros(self.num_classes)
-        class_encoded[classes] = 1
+        
+        for ind in classes:
+            if ind != 0:
+                class_encoded[ind] = 1
+            
             
         pointlabels = np.array(pointlabels)
         
