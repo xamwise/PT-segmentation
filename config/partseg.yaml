@@ -1,13 +1,13 @@
-batch_size: 4
-epoch: 200
+batch_size: 16
+epoch: 100
 learning_rate: 1e-3
 gpu: 0
-num_point: 5000
+num_point: 1024
 optimizer: Adam
 weight_decay: 1e-4
 normal: True
 lr_decay: 0.5
-step_size: 20
+step_size: 25
 
 defaults:
   - model: Hengshuang

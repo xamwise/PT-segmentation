@@ -224,6 +224,63 @@ class FFMaachiningModels(Dataset):
             return pointdata, class_encoded, pointlabels 
         else:
             return points, class_encoded, pointlabels 
+        
+        
+        
+class FeaturenetSingle(Dataset):
+    def __init__(self, examples: list, datapath = './data/featurenet', num_points = 5000, num_classes = 25, is_normals = True) -> None:
+        
+        self.datapath = datapath
+        self.num_points = num_points
+        self.num_classes = num_classes
+        self.point_datapath = f"{self.datapath}/featurenet_pcd_normalized"
+        self.stl_datapath =  f"{self.datapath}/featurenet_stl"
+        self.label_path = f"{self.datapath}/featurenet_labels"
+        self.examples = examples
+        self.is_normals = is_normals
+        
+        
+    def __len__(self):
+        return len(self.examples)
+    
+    def __getitem__(self, index):
+        
+        pcd = o3d.io.read_point_cloud(f"{self.point_datapath}/{self.examples[index]}.pcd")
+        pointlabels = []
+        
+        with open(f"{self.label_path}/{self.examples[index]}.txt") as f:
+            for line in f.readlines():
+                # strs = line.split(' ')
+                pointlabels.append(int(line) + 1)
+                
+        points = np.asarray(pcd.points)
+        normals = np.asarray(pcd.normals)
+        classes = int(self.examples[index].split('_')[0])
+        class_encoded = np.zeros(self.num_classes)
+        class_encoded[classes] = 1
+            
+        pointlabels = np.array(pointlabels)
+        
+        if self.num_points != 5000:
+            
+            choice = np.random.choice(len(pointlabels), self.num_points, replace=False)
+            # resample
+            points = points[choice, :]
+            normals = normals[choice, :]
+            pointlabels = pointlabels[choice]
+            
+            # ratio = int(20000/self.num_points)
+            # if ratio > 1:
+            #     points = points[::ratio]
+            #     normals = normals[::ratio]
+            #     pointlabels = pointlabels[::ratio]
+        
+        if self.is_normals:
+            pointdata = np.concatenate((points, normals), axis=1)
+            return pointdata, class_encoded, pointlabels 
+        else:
+            return points, class_encoded, pointlabels 
+
 
 
 def to_categorical(y, num_classes):
@@ -252,10 +309,36 @@ if __name__ == '__main__':
     #     exit()
     
     
-    examples = get_example_list('./data/labels')
+    # examples = get_example_list('./data/labels')
+    # train, test = train_test_split(examples)
+        
+    # data = FFMaachiningModels(train, num_points=512)
+    # Dataloader = torch.utils.data.DataLoader(data, batch_size=2, shuffle=True)
+
+    # for points, classes, seg in Dataloader:
+        
+    #     print(points.shape)
+    #     print(classes)
+    #     print(seg.shape)
+        
+    #     new_classes = torch.unsqueeze(classes, 1)
+        
+    #     print(new_classes.shape)
+        
+    #     print(torch.unsqueeze(classes, 1).repeat(1, points.shape[1], 1))
+        
+        
+        
+    #     # v = pptk.viewer(points[0][:,0:3])
+        
+    #     # w = pptk.viewer(points2[0])
+        
+    #     break
+    
+    examples = get_example_list('./data/featurenet/featurenet_labels')
     train, test = train_test_split(examples)
         
-    data = FFMaachiningModels(train, num_points=512)
+    data = FeaturenetSingle(train, num_points=512)
     Dataloader = torch.utils.data.DataLoader(data, batch_size=2, shuffle=True)
 
     for points, classes, seg in Dataloader:
