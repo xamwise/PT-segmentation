@@ -5,6 +5,7 @@ import torch
 from pointnet_util import farthest_point_sample, pc_normalize
 import json
 import open3d as o3d
+import h5py
 # import pptk
 
 from provider import train_test_split, get_example_list
@@ -289,6 +290,104 @@ class FeaturenetSingle(Dataset):
 
 
 
+    
+class FFMachiningModels_hf5(Dataset):
+    def __init__(self, examples: list, num_points = 20000, num_classes = 16, is_normals = True) -> None:
+
+        self.num_points = num_points
+        self.num_classes = num_classes
+        self.examples = examples
+        self.is_normals = is_normals
+        
+        self.datapath = './data/own_data.h5'
+        with h5py.File(self.datapath, "r") as f:
+      
+            self.labels = f['labels'][examples]
+            self.pcd_data = f['pcd_data'][examples]
+                
+        
+    def __len__(self):
+        return len(self.examples)
+    
+    def __getitem__(self, index):
+       
+        pcd_datas = self.pcd_data[index]
+        pointlabels = self.labels[index]
+        classes = list(set(pointlabels))
+        class_encoded = np.zeros(self.num_classes)
+             
+        for ind in classes:
+            class_encoded[ind] = 1    
+            
+        pointlabels = np.array(pointlabels)
+        pcd_datas = np.array(pcd_datas)
+        
+        if self.num_points != 20000:
+            
+            choice = np.random.choice(len(pointlabels), self.num_points, replace=False)
+            # resample
+            
+            pcd_datas = pcd_datas[choice, :]
+            pointlabels = pointlabels[choice]
+            
+        
+        if self.is_normals:
+            
+            return pcd_datas, class_encoded, pointlabels 
+        else:
+            return pcd_datas[:,0:3], class_encoded, pointlabels 
+        
+        
+        
+class FeaturenetSingle_hf5(Dataset):
+    def __init__(self, examples: list, datapath = './data/featurenet', num_points = 5000, num_classes = 25, is_normals = True) -> None:
+        
+        self.num_points = num_points
+        self.num_classes = num_classes
+        self.examples = examples
+        self.is_normals = is_normals
+        
+        self.datapath = './data/featurenet_single_class.h5'
+        with h5py.File(self.datapath, "r") as f:
+        
+            self.labels = f['labels'][examples]
+            self.pcd_data = f['pcd_data'][examples]
+            
+    def __len__(self):
+        return len(self.examples)
+    
+    def __getitem__(self, index):
+        
+        pcd_datas = self.pcd_data[index]
+        pointlabels = self.labels[index]
+        classes = list(set(pointlabels))
+        class_encoded = np.zeros(self.num_classes)
+        
+        
+        for ind in classes:
+            if ind != 0:
+                class_encoded[ind] = 1
+            
+        pointlabels = np.array(pointlabels)
+        pcd_datas = np.array(pcd_datas)
+        
+        if self.num_points != 5000:
+            
+            choice = np.random.choice(len(pointlabels), self.num_points, replace=False)
+            # resample
+            
+            pcd_datas = pcd_datas[choice, :]
+            pointlabels = pointlabels[choice]
+            
+        
+        if self.is_normals:
+            
+            return pcd_datas, class_encoded, pointlabels 
+        else:
+            return pcd_datas[:,0:3], class_encoded, pointlabels 
+       
+       
+
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """
     new_y = torch.eye(num_classes)[y.cpu().data.numpy(),]
@@ -299,6 +398,15 @@ def to_categorical(y, num_classes):
     
 if __name__ == '__main__':
     
+    
+    # datapath = './data/featurenet_single_class.h5'
+    # with h5py.File(datapath, "r") as f:
+    
+    #     labels = f['labels'][()]
+    #     pcd_data = f['pcd_data'][()]
+    
+    # h = 9
+
     # data = PartNormalDataset()
     # DataLoader = torch.utils.data.DataLoader(data, batch_size=2, shuffle=True)
     # for point,label, seg in DataLoader:
@@ -341,28 +449,40 @@ if __name__ == '__main__':
         
     #     break
     
-    examples = get_example_list('./data/featurenet/featurenet_labels')
+    
+    
+    examples = get_example_list('',num_examples = 607, f5 = True)
     train, test = train_test_split(examples)
-        
-    data = FeaturenetSingle(train, num_points=512)
-    Dataloader = torch.utils.data.DataLoader(data, batch_size=2, shuffle=True)
-
+    
+    data = FFMachiningModels_hf5(train, num_points=1024)
+    Dataloader = torch.utils.data.DataLoader(data, batch_size=16, shuffle=True)
+    count = 0
     for points, classes, seg in Dataloader:
         
-        print(points.shape)
-        print(classes)
+        print(points)
+        # print(classes)
         print(seg.shape)
         
-        new_classes = torch.unsqueeze(classes, 1)
+        # for label in seg[0]:
+        #     if label != 0:
+        #         count += 1
+                
+        # print(count)
         
-        print(new_classes.shape)
         
-        print(torch.unsqueeze(classes, 1).repeat(1, points.shape[1], 1))
+        # new_classes = torch.unsqueeze(classes, 1)
         
+        # print(new_classes.shape)
         
+        # print(torch.unsqueeze(classes, 1).repeat(1, points.shape[1], 1))
+        
+        # print('1')
         
         # v = pptk.viewer(points[0][:,0:3])
         
         # w = pptk.viewer(points2[0])
         
-        break
+        print(f'{count}',end='/r')
+        count+=1
+        exit()
+        

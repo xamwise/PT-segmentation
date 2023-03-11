@@ -17,6 +17,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from dataset import FeaturenetSingle
+from dataset import FeaturenetSingle_hf5
 
 import hydra
 import omegaconf
@@ -60,15 +61,15 @@ def main(args):
 
     print(args)#.pretty())
 
-    examples = provider.get_example_list('./data/featurenet/featurenet_labels')
+    examples = provider.get_example_list('',num_examples = 24000, f5 = True)
     
     train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
     
-    TRAIN_DATA = FeaturenetSingle(train, num_points=args.num_point)
+    TRAIN_DATA = FeaturenetSingle_hf5(train, num_points=args.num_point)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
-    VAL_DATA = FeaturenetSingle(val, num_points=args.num_point)
+    VAL_DATA = FeaturenetSingle_hf5(val, num_points=args.num_point)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
-    TEST_DATA = FeaturenetSingle(test, num_points=args.num_point)
+    TEST_DATA = FeaturenetSingle_hf5(test, num_points=args.num_point)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
 
     

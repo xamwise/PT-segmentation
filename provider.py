@@ -251,8 +251,12 @@ def random_point_dropout(batch_pc, max_dropout_ratio=0.875):
     return batch_pc
 
 
-def get_example_list(path):
-    return [x.split('.')[0] for x in os.listdir(path)]
+def get_example_list(path, num_examples = 0, f5 = True):
+    
+    if f5:
+        return [x for x in range(num_examples)]
+    else:
+        return [x.split('.')[0] for x in os.listdir(path)]
 
 
 
@@ -309,9 +313,17 @@ def train_test_split(examples, split_ratio = 0.05, val=False, val_ratio = 0.05):
         for index in val_indices:
             train_set.pop(index)
         
+        train_set.sort()
+        test_set.sort()
+        val_set.sort()
+        
         return train_set, test_set, val_set
     
     else:
+        
+        train_set.sort()
+        test_set.sort()
+        
         return train_set, test_set
         
     

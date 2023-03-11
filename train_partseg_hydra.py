@@ -15,8 +15,9 @@ import numpy as np
 
 from pathlib import Path
 from tqdm import tqdm
-from dataset import PartNormalDataset
+# from dataset import PartNormalDataset
 from dataset import FFMaachiningModels
+from dataset import FFMachiningModels_hf5
 
 import hydra
 import omegaconf
@@ -68,15 +69,15 @@ def main(args):
     # TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', normal_channel=args.normal)
     # testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=10)
 
-    examples = provider.get_example_list('./data/labels')
+    examples = provider.get_example_list('',num_examples = 607, f5 = True)
     
     train, test, val = provider.train_test_split(examples, val=True)
     
-    TRAIN_DATA = FFMaachiningModels(train, num_points=args.num_point)
+    TRAIN_DATA = FFMachiningModels_hf5(train, num_points=args.num_point)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
-    VAL_DATA = FFMaachiningModels(val, num_points=args.num_point)
+    VAL_DATA = FFMachiningModels_hf5(val, num_points=args.num_point)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
-    TEST_DATA = FFMaachiningModels(test, num_points=args.num_point)
+    TEST_DATA = FFMachiningModels_hf5(test, num_points=args.num_point)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
 
     
