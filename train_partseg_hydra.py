@@ -80,7 +80,8 @@ def main(args):
     TEST_DATA = FFMachiningModels_hf5(test, num_points=args.num_point)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
 
-    
+    logger.info('Finished loading DataSet ...')
+
 
     # for points, classes, seg in trainDataLoader:
         

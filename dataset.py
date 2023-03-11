@@ -262,8 +262,15 @@ class FeaturenetSingle(Dataset):
         class_encoded = np.zeros(self.num_classes)
         
         for ind in classes:
-            if ind != 0:
-                class_encoded[ind] = 1
+            if ind == 81:
+                class_encoded[9] = 1
+                
+                for i, label in enumerate(pointlabels):
+                    if label == 81:
+                        pointlabels[i] = 9
+            else:
+                if ind != 0:
+                    class_encoded[ind] = 1
             
             
         pointlabels = np.array(pointlabels)
@@ -315,9 +322,9 @@ class FFMachiningModels_hf5(Dataset):
         pointlabels = self.labels[index]
         classes = list(set(pointlabels))
         class_encoded = np.zeros(self.num_classes)
-             
+        
         for ind in classes:
-            class_encoded[ind] = 1    
+            class_encoded[ind] = 1  
             
         pointlabels = np.array(pointlabels)
         pcd_datas = np.array(pcd_datas)
@@ -363,10 +370,17 @@ class FeaturenetSingle_hf5(Dataset):
         classes = list(set(pointlabels))
         class_encoded = np.zeros(self.num_classes)
         
-        
+             
         for ind in classes:
-            if ind != 0:
-                class_encoded[ind] = 1
+            if ind == 81:
+                class_encoded[9] = 1
+                
+                for i, label in enumerate(pointlabels):
+                    if label == 81:
+                        pointlabels[i] = 9
+                
+            else:
+                class_encoded[ind] = 1    
             
         pointlabels = np.array(pointlabels)
         pcd_datas = np.array(pcd_datas)
@@ -423,52 +437,17 @@ if __name__ == '__main__':
     #     exit()
     
     
-    # examples = get_example_list('./data/labels')
+    # examples = get_example_list('./data/featurenet/featurenet_labels', f5=False)
     # train, test = train_test_split(examples)
         
-    # data = FFMaachiningModels(train, num_points=512)
-    # Dataloader = torch.utils.data.DataLoader(data, batch_size=2, shuffle=True)
+    # data = FeaturenetSingle(examples, num_points=5000)
+    # Dataloader = torch.utils.data.DataLoader(data, batch_size=1, shuffle=True)
 
-    # for points, classes, seg in Dataloader:
+    # for _, classes, seg in Dataloader:
         
-    #     print(points.shape)
-    #     print(classes)
-    #     print(seg.shape)
-        
-    #     new_classes = torch.unsqueeze(classes, 1)
-        
-    #     print(new_classes.shape)
-        
-    #     print(torch.unsqueeze(classes, 1).repeat(1, points.shape[1], 1))
-        
-        
-        
-    #     # v = pptk.viewer(points[0][:,0:3])
-        
-    #     # w = pptk.viewer(points2[0])
-        
-    #     break
-    
-    
-    
-    examples = get_example_list('',num_examples = 607, f5 = True)
-    train, test = train_test_split(examples)
-    
-    data = FFMachiningModels_hf5(train, num_points=1024)
-    Dataloader = torch.utils.data.DataLoader(data, batch_size=16, shuffle=True)
-    count = 0
-    for points, classes, seg in Dataloader:
-        
-        print(points)
+        # print(points.shape)
         # print(classes)
-        print(seg.shape)
-        
-        # for label in seg[0]:
-        #     if label != 0:
-        #         count += 1
-                
-        # print(count)
-        
+        # print(seg)
         
         # new_classes = torch.unsqueeze(classes, 1)
         
@@ -476,13 +455,48 @@ if __name__ == '__main__':
         
         # print(torch.unsqueeze(classes, 1).repeat(1, points.shape[1], 1))
         
-        # print('1')
         
-        # v = pptk.viewer(points[0][:,0:3])
         
-        # w = pptk.viewer(points2[0])
+        # # v = pptk.viewer(points[0][:,0:3])
         
-        print(f'{count}',end='/r')
-        count+=1
-        exit()
+        # # w = pptk.viewer(points2[0])
+        
+        # break
+    
+    
+    
+    examples = get_example_list('',num_examples = 607, f5 = True)
+    train, test = train_test_split(examples)
+    
+    data = FFMachiningModels_hf5(examples, num_points=20000)
+    Dataloader = torch.utils.data.DataLoader(data, batch_size=1, shuffle=True)
+    count = 0
+    for points, classes, seg in Dataloader:
+        ...
+    #     print(points)
+    #     # print(classes)
+    #     print(seg.shape)
+        
+    #     # for label in seg[0]:
+    #     #     if label != 0:
+    #     #         count += 1
+                
+    #     # print(count)
+        
+        
+    #     # new_classes = torch.unsqueeze(classes, 1)
+        
+    #     # print(new_classes.shape)
+        
+    #     # print(torch.unsqueeze(classes, 1).repeat(1, points.shape[1], 1))
+        
+    #     # print('1')
+        
+    #     # v = pptk.viewer(points[0][:,0:3])
+        
+    #     # w = pptk.viewer(points2[0])
+        
+        # print(f'{count}',end='/r')
+    #     count+=1
+    #     exit()
         

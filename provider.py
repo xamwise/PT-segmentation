@@ -252,7 +252,6 @@ def random_point_dropout(batch_pc, max_dropout_ratio=0.875):
 
 
 def get_example_list(path, num_examples = 0, f5 = True):
-    
     if f5:
         return [x for x in range(num_examples)]
     else:
