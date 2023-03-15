@@ -65,7 +65,7 @@ def main(args):
     
     train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
     
-    TRAIN_DATA = FeaturenetSingle_hf5(train, num_points=args.num_point)
+    TRAIN_DATA = FeaturenetSingle_hf5(train[::4], num_points=args.num_point)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
     VAL_DATA = FeaturenetSingle_hf5(val, num_points=args.num_point)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
@@ -90,7 +90,7 @@ def main(args):
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss(ignore_index = 0)
 
     try:
         checkpoint = torch.load('./best_models/best_model_featurenet.pth')
@@ -102,7 +102,7 @@ def main(args):
         start_epoch = 0
 
     if args.optimizer == 'Adam':
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.AdamW(
             classifier.parameters(),
             lr=args.learning_rate,
             betas=(0.9, 0.999),
@@ -110,7 +110,12 @@ def main(args):
             weight_decay=args.weight_decay
         )
     else:
-        optimizer = torch.optim.SGD(classifier.parameters(), lr=args.learning_rate, momentum=0.9)
+        optimizer = torch.optim.SGD(classifier.parameters(), 
+                                    lr=args.learning_rate, 
+                                    momentum=0.9, 
+                                    weight_decay=args.weight_decay,
+                                    nesterov=True
+                                    )
 
     def bn_momentum_adjust(m, momentum):
         if isinstance(m, torch.nn.BatchNorm2d) or isinstance(m, torch.nn.BatchNorm1d):
@@ -243,7 +248,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
-            savepath = 'best_models/best_model_faeturenet_1024.pth'
+            savepath = 'best_models/best_model_faeturenet_256_.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,

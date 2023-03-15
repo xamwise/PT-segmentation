@@ -1,10 +1,10 @@
-batch_size: 16
+batch_size: 2
 epoch: 100
-learning_rate: 1e-3
+learning_rate: 0.5
 gpu: 0
-num_point: 1024
-optimizer: Adam
-weight_decay: 1e-4
+num_point: 256
+optimizer: SGD
+weight_decay: 0.0001
 normal: True
 lr_decay: 0.5
 step_size: 20
