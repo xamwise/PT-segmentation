@@ -1,0 +1,5 @@
+knn_sampling: 16
+nblocks: 4
+transformer_dim: 512
+num_points: 1024
+name: Zhao

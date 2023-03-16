@@ -15,23 +15,22 @@ import numpy as np
 
 from pathlib import Path
 from tqdm import tqdm
-# from dataset import PartNormalDataset
-from dataset import FFMaachiningModels
-from dataset import FFMachiningModels_hf5
+
+from dataset import FeaturenetSingle
+from dataset import FeaturenetSingle_hf5
 
 import hydra
 import omegaconf
 
 
-seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 'Rocket': [41, 42, 43],
-               'Car': [8, 9, 10, 11], 'Laptop': [28, 29], 'Cap': [6, 7], 'Skateboard': [44, 45, 46], 'Mug': [36, 37],
-               'Guitar': [19, 20, 21], 'Bag': [4, 5], 'Lamp': [24, 25, 26, 27], 'Table': [47, 48, 49],
-               'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
-seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
-
-seg_classes = {'None': [0], 'Hole': [1], 'Chamfer': [2], 'Fillet': [3], 'Round': [4], 'Slot': [5], 'Pocket': [6],
-               'Step': [7], 'Gear': [8], 'Thread': [9], 'Boss': [10], 'Circular_step': [11], 'Ring': [12]}
-            #    'Gear': [13], 'Thread': [14], 'Boss': [15]}
+seg_classes = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
+               'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
+               'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
+               'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
+               'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
+               '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
+               'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
+               '6_sides_pocket': [24]}
 seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
 
@@ -62,26 +61,18 @@ def main(args):
 
     print(args)#.pretty())
 
-    # root = hydra.utils.to_absolute_path('data/shapenetcore_partanno_segmentation_benchmark_v0_normal/')
-
-    # TRAIN_DATASET2 = PartNormalDataset(root=root, npoints=args.num_point, split='trainval', normal_channel=args.normal)
-    # trainDataLoader2 = torch.utils.data.DataLoader(TRAIN_DATASET2, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True)
-    # TEST_DATASET = PartNormalDataset(root=root, npoints=args.num_point, split='test', normal_channel=args.normal)
-    # testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=10)
-
-    examples = provider.get_example_list('',num_examples = 1007, f5 = True)
+    examples = provider.get_example_list('',num_examples = 1000, f5 = True)
     
-    train, test, val = provider.train_test_split(examples, val=True)
+    train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
     
-    TRAIN_DATA = FFMachiningModels_hf5(train, num_points=args.num_point)
+    TRAIN_DATA = FeaturenetSingle_hf5(train, num_points=args.num_point)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
-    VAL_DATA = FFMachiningModels_hf5(val, num_points=args.num_point)
+    VAL_DATA = FeaturenetSingle_hf5(val, num_points=args.num_point)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
-    TEST_DATA = FFMachiningModels_hf5(test, num_points=args.num_point)
+    TEST_DATA = FeaturenetSingle_hf5(test, num_points=args.num_point)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
 
     logger.info('Finished loading DataSet ...')
-
 
     # for points, classes, seg in trainDataLoader:
         
@@ -92,17 +83,17 @@ def main(args):
     #     exit()
 
     '''MODEL LOADING'''
-    args.input_dim = (6 if args.normal else 3) #+ 16
-    args.num_class = 16
-    num_category = 16
+    args.input_dim = (6 if args.normal else 3) #+ 25
+    args.num_class = 25
+    num_category = 25
     num_part = args.num_class
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss(ignore_index = 0)
 
     try:
-        checkpoint = torch.load('./best_models/best_model.pth')
+        checkpoint = torch.load('./best_models/best_model_featurenet_multi.pth')
         start_epoch = checkpoint['epoch']
         classifier.load_state_dict(checkpoint['model_state_dict'])
         logger.info('Use pretrain model')
@@ -111,7 +102,7 @@ def main(args):
         start_epoch = 0
 
     if args.optimizer == 'Adam':
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.AdamW(
             classifier.parameters(),
             lr=args.learning_rate,
             betas=(0.9, 0.999),
@@ -119,7 +110,12 @@ def main(args):
             weight_decay=args.weight_decay
         )
     else:
-        optimizer = torch.optim.SGD(classifier.parameters(), lr=args.learning_rate, momentum=0.9)
+        optimizer = torch.optim.SGD(classifier.parameters(), 
+                                    lr=args.learning_rate, 
+                                    momentum=0.9, 
+                                    weight_decay=args.weight_decay,
+                                    nesterov=True
+                                    )
 
     def bn_momentum_adjust(m, momentum):
         if isinstance(m, torch.nn.BatchNorm2d) or isinstance(m, torch.nn.BatchNorm1d):
@@ -166,10 +162,8 @@ def main(args):
             points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
             optimizer.zero_grad()
 
-            # seg_pred = classifier(torch.cat([points, to_categorical(label, num_category).repeat(1, points.shape[1], 1)], -1))
             # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
             seg_pred = classifier(points)
-
             seg_pred = seg_pred.contiguous().view(-1, num_part)
             target = target.view(-1, 1)[:, 0]
             pred_choice = seg_pred.data.max(1)[1]
@@ -201,11 +195,9 @@ def main(args):
             for batch_id, (points, label, target) in tqdm(enumerate(valDataLoader), total=len(valDataLoader), smoothing=0.9):
                 cur_batch_size, NUM_POINT, _ = points.size()
                 points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
-                
                 # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
-                seg_pred = classifier(points)
 
-        
+                seg_pred = classifier(points)
                 cur_pred_val = seg_pred.cpu().data.numpy()
                 cur_pred_val_logits = cur_pred_val
                 cur_pred_val = np.zeros((cur_batch_size, NUM_POINT)).astype(np.int32)
@@ -256,7 +248,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
-            savepath = 'best_models/best_model.pth'
+            savepath = 'best_models/best_model_featurenet_multi_1024.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,

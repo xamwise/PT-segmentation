@@ -401,6 +401,51 @@ class FeaturenetSingle_hf5(Dataset):
             return pcd_datas[:,0:3], class_encoded, pointlabels 
        
        
+class FeaturenetMulti_hf5(Dataset):
+    def __init__(self, examples: list, datapath = './data/featurenet', num_points = 10000, num_classes = 25, is_normals = True) -> None:
+        
+        self.num_points = num_points
+        self.num_classes = num_classes
+        self.examples = examples
+        self.is_normals = is_normals
+        
+        self.datapath = './data/multi_featureneT.h5'
+        with h5py.File(self.datapath, "r") as f:
+        
+            self.labels = f['labels'][examples]
+            self.pcd_data = f['pcd_data'][examples]
+            
+    def __len__(self):
+        return len(self.examples)
+    
+    def __getitem__(self, index):
+        
+        pcd_datas = self.pcd_data[index]
+        pointlabels = self.labels[index] + 1
+        classes = list(set(pointlabels))
+        class_encoded = np.zeros(self.num_classes)
+     
+        for ind in classes:
+            class_encoded[ind] = 1  
+            
+        pointlabels = np.array(pointlabels)
+        pcd_datas = np.array(pcd_datas)
+        
+        if self.num_points != 10000:
+            
+            choice = np.random.choice(len(pointlabels), self.num_points, replace=False)
+            # resample
+            
+            pcd_datas = pcd_datas[choice, :]
+            pointlabels = pointlabels[choice]
+            
+        
+        if self.is_normals:
+            
+            return pcd_datas, class_encoded, pointlabels 
+        else:
+            return pcd_datas[:,0:3], class_encoded, pointlabels 
+       
 
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """
@@ -465,14 +510,15 @@ if __name__ == '__main__':
     
     
     
-    examples = get_example_list('',num_examples = 607, f5 = True)
+    examples = get_example_list('',num_examples = 1000, f5 = True)
     train, test = train_test_split(examples)
     
-    data = FFMachiningModels_hf5(examples, num_points=20000)
+    # data = FFMachiningModels_hf5(examples, num_points=20000)
+    data = FeaturenetMulti_hf5(test)
     Dataloader = torch.utils.data.DataLoader(data, batch_size=1, shuffle=True)
     count = 0
     for points, classes, seg in Dataloader:
-        ...
+        print(seg)
     #     print(points)
     #     # print(classes)
     #     print(seg.shape)
