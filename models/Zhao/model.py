@@ -166,6 +166,7 @@ class Bottleneck(nn.Module):
 class PointTransformerSegBase(nn.Module):
     def __init__(self, block, cfg, blocks):#, in_channels=6, num_classes=50, num_shape_classes=None):#, knn_sampling=16, num_points=1024):
         super().__init__()
+        print(cfg)
         self.in_channels = cfg.input_dim
         self.num_classes = cfg.num_class
         self.num_shape_classes = None
