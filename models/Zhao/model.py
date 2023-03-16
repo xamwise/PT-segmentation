@@ -13,7 +13,7 @@ import einops
 
 
 import pointops
-from layernorm1d import LayerNorm1d
+from .layernorm1d import LayerNorm1d
 
 
 class PointTransformerLayer(nn.Module):
