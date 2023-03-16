@@ -87,6 +87,7 @@ def main(args):
     args.num_class = 25
     num_category = 25
     num_part = args.num_class
+    
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
