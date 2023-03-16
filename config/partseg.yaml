@@ -1,13 +1,13 @@
 batch_size: 16
 epoch: 100
-learning_rate: 0.05
+learning_rate: 0.5
 gpu: 0
-num_point: 1024
+num_point: 2048
 optimizer: SGD
 weight_decay: 0.0001
 normal: True
-lr_decay: 0.5
-step_size: 20
+lr_decay: 0.001
+step_size: 10
 
 defaults:
   # - model: Zhao
