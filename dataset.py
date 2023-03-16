@@ -299,7 +299,7 @@ class FeaturenetSingle(Dataset):
 
     
 class FFMachiningModels_hf5(Dataset):
-    def __init__(self, examples: list, num_points = 20000, num_classes = 16, is_normals = True) -> None:
+    def __init__(self, examples: list, num_points = 20000, num_classes = 13, is_normals = True) -> None:
 
         self.num_points = num_points
         self.num_classes = num_classes

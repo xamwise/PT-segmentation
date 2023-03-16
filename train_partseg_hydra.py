@@ -93,8 +93,8 @@ def main(args):
 
     '''MODEL LOADING'''
     args.input_dim = (6 if args.normal else 3) #+ 16
-    args.num_class = 16
-    num_category = 16
+    args.num_class = 13
+    num_category = 13
     num_part = args.num_class
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
 
