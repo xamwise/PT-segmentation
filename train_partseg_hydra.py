@@ -256,7 +256,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
-            savepath = 'best_models/best_model.pth'
+            savepath = 'best_models/best_model_own_set_2048.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,
