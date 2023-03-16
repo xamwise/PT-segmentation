@@ -409,7 +409,7 @@ class FeaturenetMulti_hf5(Dataset):
         self.examples = examples
         self.is_normals = is_normals
         
-        self.datapath = './data/multi_featureneT.h5'
+        self.datapath = './data/multi_featurenet.h5'
         with h5py.File(self.datapath, "r") as f:
         
             self.labels = f['labels'][examples]

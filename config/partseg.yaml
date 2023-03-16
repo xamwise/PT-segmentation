@@ -10,8 +10,8 @@ lr_decay: 0.001
 step_size: 10
 
 defaults:
-  # - model: Zhao
-   - model: Hengshuang
+   - model: Zhao
+  # - model: Hengshuang
 
 hydra:
   run:
