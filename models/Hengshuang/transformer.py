@@ -11,7 +11,7 @@ class TransformerBlock(nn.Module):
         self.fc1 = nn.Sequential(
             nn.Linear(d_points, d_model, bias=False),
             nn.BatchNorm1d(d_model),
-            nn.ReLU
+            nn.ReLU()
         )
         self.fc2 = nn.Sequential(
             nn.BatchNorm1d(d_model),
