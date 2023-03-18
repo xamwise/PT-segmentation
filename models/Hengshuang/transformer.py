@@ -3,19 +3,35 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from layernorm1d import LayerNorm1d
 
 class TransformerBlock(nn.Module):
     def __init__(self, d_points, d_model, k) -> None:
         super().__init__()
-        self.fc1 = nn.Linear(d_points, d_model)
-        self.fc2 = nn.Linear(d_model, d_points)
-        self.fc_delta = nn.Sequential(
-            nn.Linear(3, d_model),
+        self.fc1 = nn.Sequential(
+            nn.Linear(d_points, d_model, bias=False),
+            nn.BatchNorm1d(d_model),
+            nn.ReLU
+        )
+        self.fc2 = nn.Sequential(
+            nn.BatchNorm1d(d_model),
             nn.ReLU(),
-            nn.Linear(d_model, d_model)
+            nn.Linear(d_model, d_points, bias=False),
+            nn.BatchNorm1d(d_points),
+            nn.ReLU()
+        )
+        self.relu = nn.ReLU
+        self.fc_delta = nn.Sequential(
+            nn.Linear(3, 3),
+            LayerNorm1d(3),
+            nn.ReLU(),
+            nn.Linear(3, d_model)
         )
         self.fc_gamma = nn.Sequential(
+            LayerNorm1d(d_model),
+            nn.ReLU(),
             nn.Linear(d_model, d_model),
+            LayerNorm1d(d_model),
             nn.ReLU(),
             nn.Linear(d_model, d_model)
         )
@@ -40,6 +56,6 @@ class TransformerBlock(nn.Module):
         attn = F.softmax(attn / np.sqrt(k.size(-1)), dim=-2)  # b x n x k x f
         
         res = torch.einsum('bmnf,bmnf->bmf', attn, v + pos_enc)
-        res = self.fc2(res) + pre
+        res = self.relu(self.fc2(res) + pre)
         return res, attn
     

@@ -23,11 +23,11 @@ import hydra
 import omegaconf
 
 
-seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 'Rocket': [41, 42, 43],
-               'Car': [8, 9, 10, 11], 'Laptop': [28, 29], 'Cap': [6, 7], 'Skateboard': [44, 45, 46], 'Mug': [36, 37],
-               'Guitar': [19, 20, 21], 'Bag': [4, 5], 'Lamp': [24, 25, 26, 27], 'Table': [47, 48, 49],
-               'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
-seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+# seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 'Rocket': [41, 42, 43],
+#                'Car': [8, 9, 10, 11], 'Laptop': [28, 29], 'Cap': [6, 7], 'Skateboard': [44, 45, 46], 'Mug': [36, 37],
+#                'Guitar': [19, 20, 21], 'Bag': [4, 5], 'Lamp': [24, 25, 26, 27], 'Table': [47, 48, 49],
+#                'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
+# seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
 seg_classes = {'None': [0], 'Hole': [1], 'Chamfer': [2], 'Fillet': [3], 'Round': [4], 'Slot': [5], 'Pocket': [6],
                'Step': [7], 'Gear': [8], 'Thread': [9], 'Boss': [10], 'Circular_step': [11], 'Ring': [12]}
@@ -256,7 +256,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
-            savepath = 'best_models/best_model_own_set_2048.pth'
+            savepath = f'best_models/best_model_own_set_{str(args.num_points)}.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,

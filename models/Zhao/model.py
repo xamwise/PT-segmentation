@@ -164,10 +164,10 @@ class Bottleneck(nn.Module):
 
 
 class PointTransformerSegBase(nn.Module):
-    def __init__(self, block, blocks, cfg):#, in_channels=6, num_classes=50, num_shape_classes=None):#, knn_sampling=16, num_points=1024):
+    def __init__(self, block, blocks, cfg, in_channels=6):#, in_channels=6, num_classes=50, num_shape_classes=None):#, knn_sampling=16, num_points=1024):
         super().__init__()
         print(cfg)
-        self.in_channels = cfg.input_dim
+        self.in_channels = in_channels
         self.num_classes = cfg.num_class
         self.num_shape_classes = None
         self.in_planes, planes = self.in_channels, [32, 64, 128, 256, 512]
@@ -210,9 +210,10 @@ class PointTransformerSegBase(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, input):
+        print(input.shape)
         p0 = input[:,:3]
-        x0 = input[:,3:]
-        o0 = torch.zeros(self.num_points)#input_dict["offset"].int()
+        x0 = input[:,0:]
+        o0 = input[:,:3]#input["offset"].int() #torch.zeros(self.num_points)#
         if self.num_shape_classes is not None:
             ...
             # y = input_dict["cls_token"]

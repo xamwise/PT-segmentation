@@ -1,4 +1,4 @@
-batch_size: 16
+batch_size: 8
 epoch: 100
 learning_rate: 0.5
 gpu: 0
@@ -10,8 +10,8 @@ lr_decay: 0.001
 step_size: 10
 
 defaults:
-   - model: Zhao
-  # - model: Hengshuang
+   #- model: Zhao
+   - model: Hengshuang
 
 hydra:
   run:

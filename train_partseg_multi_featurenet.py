@@ -83,7 +83,7 @@ def main(args):
     #     exit()
 
     '''MODEL LOADING'''
-    args.input_dim = (6 if args.normal else 3) #+ 25
+    args.input_dim = (6 if args.normal else 3) 
     args.num_class = 25
     num_category = 25
     num_part = args.num_class
@@ -249,7 +249,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
-            savepath = 'best_models/best_model_featurenet_multi_1024.pth'
+            savepath = f'best_models/best_model_featurenet_multi_{str(args.num_points)}.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,

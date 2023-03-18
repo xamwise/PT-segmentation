@@ -168,7 +168,7 @@ class PartNormalDataset(Dataset):
         return len(self.datapath)
     
     
-    
+########### MANUFACTURING FEATURES ###############
     
 class FFMaachiningModels(Dataset):
     def __init__(self, examples: list, datapath = './data', num_points = 20000, num_classes = 16, is_normals = True) -> None:
