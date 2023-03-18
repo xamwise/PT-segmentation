@@ -2,8 +2,15 @@ import torch
 import torch.nn as nn
 from pointnet_util import PointNetFeaturePropagation, PointNetSetAbstraction
 from .transformer import TransformerBlock
+from .layernorm1d import LayerNorm1d
 
-
+class SwapAxes(nn.Module):
+            def __init__(self):
+                super().__init__()
+            
+            def forward(self, x):
+                return x.transpose(1, 2)
+            
 class TransitionDown(nn.Module):
     def __init__(self, k, nneighbor, channels):
         super().__init__()
@@ -15,27 +22,18 @@ class TransitionDown(nn.Module):
 
 class TransitionUp(nn.Module):
     def __init__(self, dim1, dim2, dim_out):
-        class SwapAxes(nn.Module):
-            def __init__(self):
-                super().__init__()
-            
-            def forward(self, x):
-                return x.transpose(1, 2)
+        
 
         super().__init__()
         self.momentum_1d = 0.2
         self.fc1 = nn.Sequential(
             nn.Linear(dim1, dim_out),
-            SwapAxes(),
-            nn.BatchNorm1d(dim_out, momentum=self.momentum_1d),  # TODO
-            SwapAxes(),
+            LayerNorm1d(dim_out),
             nn.ReLU(),
         )
         self.fc2 = nn.Sequential(
             nn.Linear(dim2, dim_out),
-            SwapAxes(),
-            nn.BatchNorm1d(dim_out, momentum=self.momentum_1d),  # TODO
-            SwapAxes(),
+            LayerNorm1d(dim_out),
             nn.ReLU(),
         )
         self.fp = PointNetFeaturePropagation(-1, [])
@@ -51,11 +49,11 @@ class Backbone(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         npoints, nblocks, nneighbor, n_c, d_points = cfg.num_point, cfg.model.nblocks, cfg.model.nneighbor, cfg.num_class, cfg.input_dim
+        self.lin = nn.Linear(d_points, 32)
         self.fc1 = nn.Sequential(
             nn.Linear(d_points, 32),
+            LayerNorm1d(32),
             nn.ReLU(),
-            nn.Dropout(p=0.1),
-            nn.Linear(32, 32)
         )
         self.transformer1 = TransformerBlock(32, cfg.model.transformer_dim, nneighbor)
         self.transition_downs = nn.ModuleList()
@@ -105,13 +103,10 @@ class PointTransformerSeg(nn.Module):
         npoints, nblocks, nneighbor, n_c, d_points = cfg.num_point, cfg.model.nblocks, cfg.model.nneighbor, cfg.num_class, cfg.input_dim
         self.drop_prob = 0.1
         self.fc2 = nn.Sequential(
-            nn.Linear(32 * 2 ** nblocks, 512),
+            nn.Linear(32 * 2 ** nblocks, 32 * 2 ** nblocks),
+            LayerNorm1d(32 * 2 ** nblocks),
             nn.ReLU(),
-            nn.Dropout(p=self.drop_prob),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Dropout(p=self.drop_prob),
-            nn.Linear(512, 32 * 2 ** nblocks)
+            # nn.Linear(512, 32 * 2 ** nblocks)
         )
         self.transformer2 = TransformerBlock(32 * 2 ** nblocks, cfg.model.transformer_dim, nneighbor)
         self.nblocks = nblocks
@@ -123,13 +118,10 @@ class PointTransformerSeg(nn.Module):
             self.transformers.append(TransformerBlock(channel, cfg.model.transformer_dim, nneighbor))
 
         self.fc3 = nn.Sequential(
-            nn.Linear(32, 64),
+            nn.Linear(32, 32),
+            LayerNorm1d(32),
             nn.ReLU(),
-            nn.Dropout(p=self.drop_prob),
-            nn.Linear(64, 64),
-            nn.ReLU(),
-            nn.Dropout(p=self.drop_prob),
-            nn.Linear(64, n_c)
+            nn.Linear(32, n_c)
         )
     
     def forward(self, x):

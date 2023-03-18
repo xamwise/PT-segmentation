@@ -10,28 +10,24 @@ class TransformerBlock(nn.Module):
         super().__init__()
         self.fc1 = nn.Sequential(
             nn.Linear(d_points, d_model, bias=False),
-            nn.BatchNorm1d(d_model),
+            LayerNorm1d(d_model),
             nn.ReLU()
         )
         self.fc2 = nn.Sequential(
-            nn.BatchNorm1d(d_model),
+            LayerNorm1d(d_model),
             nn.ReLU(),
             nn.Linear(d_model, d_points, bias=False),
-            nn.BatchNorm1d(d_points),
+            LayerNorm1d(d_points),
             nn.ReLU()
         )
-        self.relu = nn.ReLU
+        self.relu = nn.ReLU()
         self.fc_delta = nn.Sequential(
             nn.Linear(3, 3),
-            LayerNorm1d(3),
             nn.ReLU(),
             nn.Linear(3, d_model)
         )
         self.fc_gamma = nn.Sequential(
-            LayerNorm1d(d_model),
-            nn.ReLU(),
             nn.Linear(d_model, d_model),
-            LayerNorm1d(d_model),
             nn.ReLU(),
             nn.Linear(d_model, d_model)
         )
