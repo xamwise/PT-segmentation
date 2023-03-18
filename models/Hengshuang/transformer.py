@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from layernorm1d import LayerNorm1d
+from .layernorm1d import LayerNorm1d
 
 class TransformerBlock(nn.Module):
     def __init__(self, d_points, d_model, k) -> None:

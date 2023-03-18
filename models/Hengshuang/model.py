@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from pointnet_util import PointNetFeaturePropagation, PointNetSetAbstraction
 from .transformer import TransformerBlock
-from layernorm1d import LayerNorm1d
 
 class SwapAxes(nn.Module):
             def __init__(self):
