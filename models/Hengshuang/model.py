@@ -53,7 +53,7 @@ class Backbone(nn.Module):
         self.fc1 = nn.Sequential(
             nn.Linear(d_points, 32),
             LayerNorm1d(32),
-            nn.ReLU(),
+            nn.ReLU()
         )
         self.transformer1 = TransformerBlock(32, cfg.model.transformer_dim, nneighbor)
         self.transition_downs = nn.ModuleList()
@@ -66,13 +66,15 @@ class Backbone(nn.Module):
     
     def forward(self, x):
         xyz = x[..., :3]
+    
         points = self.transformer1(xyz, self.fc1(x))[0]
-
+        
         xyz_and_feats = [(xyz, points)]
         for i in range(self.nblocks):
             xyz, points = self.transition_downs[i](xyz, points)
             points = self.transformers[i](xyz, points)[0]
             xyz_and_feats.append((xyz, points))
+                
         return points, xyz_and_feats
 
 
@@ -121,11 +123,13 @@ class PointTransformerSeg(nn.Module):
             nn.Linear(32, 32),
             LayerNorm1d(32),
             nn.ReLU(),
-            nn.Linear(32, n_c)
+            nn.Linear(32, n_c),
+            nn.Softmax(dim=-1)
         )
     
     def forward(self, x):
         points, xyz_and_feats = self.backbone(x)
+        
         xyz = xyz_and_feats[-1][0]
         points = self.transformer2(xyz, self.fc2(points))[0]
 
@@ -133,6 +137,9 @@ class PointTransformerSeg(nn.Module):
             points = self.transition_ups[i](xyz, points, xyz_and_feats[- i - 2][0], xyz_and_feats[- i - 2][1])
             xyz = xyz_and_feats[- i - 2][0]
             points = self.transformers[i](xyz, points)[0]
+    
+        if True in torch.isnan(points):
+            checker = True
             
         return self.fc3(points)
 
