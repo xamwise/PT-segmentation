@@ -22,20 +22,31 @@ from dataset import FeaturenetSingle_hf5
 import hydra
 import omegaconf
 
-from losses import FocalLoss, DiceLoss2, JaccardLoss
+from losses import FocalLoss, DiceLoss2, JaccardLoss, DiceLoss
 from metrics import classwise_IoU_single, f1_score_single, pointcloud_accuracy, classwise_pointcloud_accuracy
 
 
 
-SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
-               'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
-               'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
-               'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
-               'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
-               '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
-               'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
-               '6_sides_pocket': [24]}
+# SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
+#                'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
+#                'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
+#                'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
+#                'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
+#                '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
+#                'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
+#                '6_sides_pocket': [24]}
 SEG_LABEL_TO_CAT = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+
+
+
+SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
+               'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
+               'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
+               'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
+               'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
+               '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
+               'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
+               '6_sides_pocket': [23]}
 
 
 for cat in SEG_CLASSES.keys():
@@ -64,58 +75,41 @@ def main(args):
 
     print(args)#.pretty())
 
-    examples = provider.get_example_list('',num_examples = 24000, f5 = True)
+    examples = provider.get_example_list('',num_examples = 23977, f5 = True)
     
     train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
     
-    TRAIN_DATA = FeaturenetSingle_hf5(train[::2], num_points=args.num_point)
+    TRAIN_DATA = FeaturenetSingle_hf5(train[::4], num_points=args.num_point, isolated=True)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
-    VAL_DATA = FeaturenetSingle_hf5(val, num_points=args.num_point)
+    VAL_DATA = FeaturenetSingle_hf5(val, num_points=args.num_point, isolated=True)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
-    TEST_DATA = FeaturenetSingle_hf5(test, num_points=args.num_point)
+    TEST_DATA = FeaturenetSingle_hf5(test, num_points=args.num_point, isolated=True)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
 
     logger.info('Finished loading DataSet ...')
 
-    # for points, classes, seg in trainDataLoader:
-        
-    #     print(points.shape)
-    #     print(classes.shape)
-    #     print(seg.shape)
-        
-    #     exit()
 
     '''MODEL LOADING'''
-    args.input_dim = (6 if args.normal else 3) #+ 25
-    args.num_class = 25
-    num_category = 25
+    args.input_dim = (6 if args.normal else 3) 
+    args.num_class = 24
+    num_category = 24
     num_part = args.num_class
+    
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
-
-    class_weights = torch.zeros(args.num_class).cuda()
-    for i, _ in enumerate(class_weights):
-        if i == 0:
-            class_weights[i] = .1
-        else:
-            class_weights[i] = 10.0
-            
-    # class_weights_list = []
-    # for i in range(args.num_class):
-    #     if i == 0:
-    #         class_weights_list.append(1.0)
-    #     else:
-    #         class_weights_list.append(3.0)
+    
             
     ################### LOSS #################
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
-    criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+    criterion = torch.nn.CrossEntropyLoss()
     # criterion = FocalLoss(gamma=5.0)
     # criterion = DiceLoss2(num_classes=args.num_class)
+    # criterion = DiceLoss(num_classes=args.num_class)
+
 
     ##########################################
     try:
-        checkpoint = torch.load('./best_models/best_model_featurenet_multi.pth')
+        checkpoint = torch.load('./best_models/best_model_featurenet_single.pth')
         start_epoch = checkpoint['epoch']
         classifier.load_state_dict(checkpoint['model_state_dict'])
         logger.info('Use pretrain model')
@@ -188,13 +182,13 @@ def main(args):
 
             seg_pred = seg_pred.contiguous().view(-1, num_part)
             target = target.view(-1, 1)[:, 0]
-            # pred_choice = seg_pred.data.max(1)[1]
+            pred_choice = seg_pred.data.max(1)[1]
             # correct = pred_choice.eq(target.data).cpu().sum()
             # mean_correct.append(correct.item() / (args.batch_size * args.num_point))
 
             mean_correct.append(pointcloud_accuracy(seg_pred, target).cpu())
 
-
+            
             loss = criterion(seg_pred, target)
             loss.backward()
             optimizer.step()
@@ -240,6 +234,7 @@ def main(args):
                     for ind_class in classes_per_example:
                         mean_accuracy_per_class[ind_class].append(classwise_accuracies[ind_class])
                         mean_iou_per_class[ind_class].append(classwise_iou[ind_class])
+                    check = True
                     
                             
                 

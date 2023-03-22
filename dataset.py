@@ -240,6 +240,7 @@ class FeaturenetSingle(Dataset):
         self.examples = examples
         self.is_normals = is_normals
         
+       
         
     def __len__(self):
         return len(self.examples)
@@ -320,6 +321,7 @@ class FFMachiningModels_hf5(Dataset):
        
         pcd_datas = self.pcd_data[index]
         pointlabels = self.labels[index]
+        
         classes = list(set(pointlabels))
         class_encoded = np.zeros(self.num_classes)
         
@@ -347,14 +349,26 @@ class FFMachiningModels_hf5(Dataset):
         
         
 class FeaturenetSingle_hf5(Dataset):
-    def __init__(self, examples: list, datapath = './data/featurenet', num_points = 5000, num_classes = 25, is_normals = True) -> None:
+    def __init__(self, examples: list, datapath = './data/featurenet', num_points = 5000, num_classes = 25, is_normals = True, isolated = False) -> None:
+        
+        # there are 24000 models for non-isolated case and 23977 for isolated
         
         self.num_points = num_points
-        self.num_classes = num_classes
         self.examples = examples
         self.is_normals = is_normals
+        self.isolated = isolated
         
-        self.datapath = './data/featurenet_single_class.h5'
+        
+        if self.isolated:
+            self.num_classes = 24
+            self.datapath = './data/featurenet_isolated.h5'
+            self.num_points = 3000
+
+        else:
+            self.num_classes = num_classes
+            self.datapath = './data/featurenet_single_class.h5'
+        
+        
         with h5py.File(self.datapath, "r") as f:
         
             self.labels = f['labels'][examples]
@@ -385,7 +399,12 @@ class FeaturenetSingle_hf5(Dataset):
         pointlabels = np.array(pointlabels)
         pcd_datas = np.array(pcd_datas)
         
-        if self.num_points != 5000:
+        if self.isolated:
+            limit = 3000
+        else:
+            limit = 5000
+        
+        if self.num_points != limit:
             
             choice = np.random.choice(len(pointlabels), self.num_points, replace=False)
             # resample
@@ -402,14 +421,25 @@ class FeaturenetSingle_hf5(Dataset):
        
        
 class FeaturenetMulti_hf5(Dataset):
-    def __init__(self, examples: list, datapath = './data/featurenet', num_points = 10000, num_classes = 25, is_normals = True) -> None:
+    def __init__(self, examples: list, datapath = './data/featurenet', num_points = 10000, num_classes = 25, is_normals = True, mod = False, isolated = False) -> None:
+        
         
         self.num_points = num_points
         self.num_classes = num_classes
         self.examples = examples
         self.is_normals = is_normals
+        self.mod = mod
+        self.isolated = isolated
         
-        self.datapath = './data/multi_featurenet.h5'
+        if self.mod:    
+            self.datapath = './data/multi_featurenet_mod.h5'
+        else:
+            self.datapath = './data/multi_featurenet.h5'
+            
+        if self.isolated:
+            self.datapath = './data/multi_featurenet_isolated.h5'
+            self.num_classes = 24
+            
         with h5py.File(self.datapath, "r") as f:
         
             self.labels = f['labels'][examples]
@@ -421,7 +451,10 @@ class FeaturenetMulti_hf5(Dataset):
     def __getitem__(self, index):
         
         pcd_datas = self.pcd_data[index]
-        pointlabels = self.labels[index] + 1
+        if self.isolated:
+            pointlabels = self.labels[index]
+        else:
+            pointlabels = self.labels[index] + 1
         classes = list(set(pointlabels))
         class_encoded = np.zeros(self.num_classes)
      
@@ -431,7 +464,12 @@ class FeaturenetMulti_hf5(Dataset):
         pointlabels = np.array(pointlabels)
         pcd_datas = np.array(pcd_datas)
         
-        if self.num_points != 10000:
+        if self.isolated:
+            limit = 3000
+        else:
+            limit = 10000
+        
+        if self.num_points != limit:
             
             choice = np.random.choice(len(pointlabels), self.num_points, replace=False)
             # resample
@@ -456,30 +494,6 @@ def to_categorical(y, num_classes):
             
     
 if __name__ == '__main__':
-    
-    
-    # datapath = './data/featurenet_single_class.h5'
-    # with h5py.File(datapath, "r") as f:
-    
-    #     labels = f['labels'][()]
-    #     pcd_data = f['pcd_data'][()]
-    
-    # h = 9
-
-    # data = PartNormalDataset()
-    # DataLoader = torch.utils.data.DataLoader(data, batch_size=2, shuffle=True)
-    # for point,label, seg in DataLoader:
-    #     print(point.shape)
-    #     print(label.shape)
-    #     print(seg.shape)
-        
-    #     print(label)
-        
-    #     new_label = to_categorical(label, 16).repeat(1, point.shape[1], 1)
-        
-    #     print(new_label)
-        
-    #     exit()
     
     
     # examples = get_example_list('./data/featurenet/featurenet_labels', f5=False)
@@ -509,16 +523,35 @@ if __name__ == '__main__':
         # break
     
     
-    
-    examples = get_example_list('',num_examples = 1000, f5 = True)
+    avg_nonzero = []
+    examples = get_example_list('',num_examples = 23977, f5 = True)
     train, test = train_test_split(examples)
     
-    # data = FFMachiningModels_hf5(examples, num_points=20000)
-    data = FeaturenetMulti_hf5(test)
-    Dataloader = torch.utils.data.DataLoader(data, batch_size=1, shuffle=True)
+    # data = FeaturenetMulti_hf5(examples, num_points=3000, isolated=True)
+    data = FeaturenetSingle_hf5(examples, num_points=3000, isolated = True)
+    # data = FFMachiningModels_hf5(examples, num_classes=18)
+
+    # data = FeaturenetMulti_hf5(test)
+    Dataloader = torch.utils.data.DataLoader(data, batch_size=16, shuffle=True)
     count = 0
+    
+    examples_per_class = [[] for i in range(25)]
+
     for points, classes, seg in Dataloader:
-        print(seg)
+        
+        
+        
+        for point_labels in seg:
+            
+            labels = torch.unique(point_labels).tolist()
+            
+            for label in labels:
+
+                mask = point_labels == label
+                num_labels = point_labels[mask]
+
+                examples_per_class[label].append(len(num_labels))
+            
     #     print(points)
     #     # print(classes)
     #     print(seg.shape)
@@ -545,4 +578,7 @@ if __name__ == '__main__':
         # print(f'{count}',end='/r')
     #     count+=1
     #     exit()
-        
+    for i, class_ex in enumerate(examples_per_class):
+        if len(class_ex) != 0:
+            print(i, len(class_ex), np.max(class_ex), np.min(class_ex), np.mean(class_ex), np.median(class_ex), np.sum(class_ex))    
+    # print(np.max(avg_nonzero), np.min(avg_nonzero), np.mean(avg_nonzero), np.median(avg_nonzero))

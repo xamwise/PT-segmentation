@@ -21,18 +21,48 @@ from dataset import FeaturenetMulti_hf5
 import hydra
 import omegaconf
 
-from losses import FocalLoss, DiceLoss2, JaccardLoss
+from losses import FocalLoss, DiceLoss2, JaccardLoss, DiceLoss
 from metrics import classwise_IoU_single, f1_score_single, pointcloud_accuracy, classwise_pointcloud_accuracy
 
 
-SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
-               'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
-               'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
-               'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
-               'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
-               '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
-               'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
-               '6_sides_pocket': [24]}
+CLASS_FREQUENCY_ABS = [7308235, 154067, 242495, 115491, 128301, 109193, 107836, 140782, 82602, 43146,
+                       71617, 51688, 253010, 51183, 51866, 44650, 52737, 200529, 155472, 90389, 104681,
+                       121792, 55473, 158335, 104430]
+
+CLASS_FREQUENCY_MEAN = [7308.23, 794.15, 977.80, 563.37, 622.82, 535.25,
+                        511.07, 686.74, 425.78, 216.81, 341.03, 280.91, 
+                        1193.44, 252.13, 258.03, 259.59, 363.70, 1055.41, 
+                        840.38, 445.26, 531.37, 577.21, 318.81, 816.15, 464.13]
+
+CLASS_FREQUENCY_ISOLATED_MEANS = [663.78, 864.17, 570.87, 598.96, 862.81, 496.25, 622.36, 702.51, 
+                            417.92, 409.39, 513.52, 1265.86, 300.45, 308.47, 481.43, 490.35, 
+                            833.5, 758.88, 429.56, 468.04, 749.73, 423.65, 829.85, 539.82]
+
+CLASS_FREQUENCY_ISOLATED = [128775, 214315, 117029, 121589, 184643, 104213, 127584, 149636, 86929, 85564, 99624, 268363, 60992,
+                            62311, 94361, 101504, 158365, 140393, 87201, 92672, 158194, 73292, 160991, 121460]
+
+
+# SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
+#                'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
+#                'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
+#                'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
+#                'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
+#                '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
+#                'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
+#                '6_sides_pocket': [24]}
+
+
+SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
+               'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
+               'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
+               'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
+               'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
+               '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
+               'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
+               '6_sides_pocket': [23]}
+
+
+
 SEG_LABEL_TO_CAT = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
 
@@ -66,51 +96,36 @@ def main(args):
     
     train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
     
-    TRAIN_DATA = FeaturenetMulti_hf5(train, num_points=args.num_point)
+    TRAIN_DATA = FeaturenetMulti_hf5(train, num_points=args.num_point, isolated=True)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
-    VAL_DATA = FeaturenetMulti_hf5(val, num_points=args.num_point)
+    VAL_DATA = FeaturenetMulti_hf5(val, num_points=args.num_point, isolated=True)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
-    TEST_DATA = FeaturenetMulti_hf5(test, num_points=args.num_point)
+    TEST_DATA = FeaturenetMulti_hf5(test, num_points=args.num_point, isolated=True)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
 
     logger.info('Finished loading DataSet ...')
 
-    # for points, classes, seg in trainDataLoader:
-        
-    #     print(points.shape)
-    #     print(classes.shape)
-    #     print(seg.shape)
-        
-    #     exit()
 
     '''MODEL LOADING'''
     args.input_dim = (6 if args.normal else 3) 
-    args.num_class = 25
-    num_category = 25
+    args.num_class = 24
+    num_category = 24
     num_part = args.num_class
     
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
     
-    class_weights = torch.zeros(args.num_class).cuda()
-    for i, _ in enumerate(class_weights):
-        if i == 0:
-            class_weights[i] = .1
-        else:
-            class_weights[i] = 10.0
-            
-    # class_weights_list = []
-    # for i in range(args.num_class):
-    #     if i == 0:
-    #         class_weights_list.append(1.0)
-    #     else:
-    #         class_weights_list.append(3.0)
+    class_weights = torch.tensor(CLASS_FREQUENCY_ISOLATED).cuda()
+    
+    class_weights = 1 / torch.log(1.02 + class_weights)
             
     ################### LOSS #################
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
-    criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+    # criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
     # criterion = FocalLoss(gamma=5.0)
     # criterion = DiceLoss2(num_classes=args.num_class)
+    criterion = DiceLoss(num_classes=args.num_class)
+
 
     ##########################################
     try:
@@ -183,18 +198,18 @@ def main(args):
 
             # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
             seg_pred = classifier(points)
-            # loss = criterion(seg_pred, target)
+            loss = criterion(seg_pred, target)
 
             seg_pred = seg_pred.contiguous().view(-1, num_part)
             target = target.view(-1, 1)[:, 0]
-            # pred_choice = seg_pred.data.max(1)[1]
+            pred_choice = seg_pred.data.max(1)[1]
             # correct = pred_choice.eq(target.data).cpu().sum()
             # mean_correct.append(correct.item() / (args.batch_size * args.num_point))
 
             mean_correct.append(pointcloud_accuracy(seg_pred, target).cpu())
 
-
-            loss = criterion(seg_pred, target)
+            
+            # loss = criterion(seg_pred, target)
             loss.backward()
             optimizer.step()
 
@@ -239,6 +254,7 @@ def main(args):
                     for ind_class in classes_per_example:
                         mean_accuracy_per_class[ind_class].append(classwise_accuracies[ind_class])
                         mean_iou_per_class[ind_class].append(classwise_iou[ind_class])
+                    check = True
                     
                             
                 
