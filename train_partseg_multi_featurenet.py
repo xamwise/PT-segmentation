@@ -82,6 +82,19 @@ def to_categorical(y, num_classes):
         return new_y.cuda()
     return new_y
 
+def calculate_class_weights(num_points_per_class):
+    total_points = np.sum(num_points_per_class)
+    num_classes = len(num_points_per_class)
+    class_weights = [0] * num_classes
+
+    for i in range(num_classes):
+        class_weights[i] = total_points / (num_classes * num_points_per_class[i])
+
+    # Normalize weights so they sum up to one
+    class_weights = class_weights / np.sum(class_weights)
+
+    return class_weights
+
 @hydra.main(config_path='config', config_name='partseg', version_base=None)
 def main(args):
     omegaconf.OmegaConf.set_struct(args, False)
@@ -117,6 +130,8 @@ def main(args):
     class_weights = torch.tensor(CLASS_FREQUENCY_ISOLATED).cuda()
     
     class_weights = 1 / torch.log(1.02 + class_weights)
+    
+    class_weights = calculate_class_weights(CLASS_FREQUENCY_ISOLATED).cuda()
             
     ################### LOSS #################
 

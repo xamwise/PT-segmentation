@@ -28,7 +28,8 @@ from metrics import classwise_IoU_single, f1_score_single, pointcloud_accuracy, 
 
 
 
-CLASS_FREQUENCY = ...
+CLASS_FREQUENCY = [12111238, 2069265, 457246, 35405, 219526, 704876, 930048, 
+                    553817, 1285240, 407205, 564424, 671544, 129159]
 
 
 # seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 'Rocket': [41, 42, 43],
@@ -56,6 +57,20 @@ def to_categorical(y, num_classes):
     if (y.is_cuda):
         return new_y.cuda()
     return new_y
+
+def calculate_class_weights(num_points_per_class):
+    total_points = np.sum(num_points_per_class)
+    num_classes = len(num_points_per_class)
+    class_weights = [0] * num_classes
+
+    for i in range(num_classes):
+        class_weights[i] = total_points / (num_classes * num_points_per_class[i])
+
+    # Normalize weights so they sum up to one
+    class_weights = class_weights / np.sum(class_weights)
+
+    return class_weights
+
 
 @hydra.main(config_path='config', config_name='partseg', version_base=None)
 def main(args):
@@ -96,11 +111,13 @@ def main(args):
     
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
     
+    class_weights = calculate_class_weights(CLASS_FREQUENCY).cuda()
+    
             
     ################### LOSS #################
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss(class_weights)
     # criterion = FocalLoss(gamma=5.0)
     # criterion = DiceLoss2(num_classes=args.num_class)
     # criterion = DiceLoss(num_classes=args.num_class)
