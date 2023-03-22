@@ -79,7 +79,7 @@ def main(args):
     
     train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
     
-    TRAIN_DATA = FeaturenetSingle_hf5(train[::4], num_points=args.num_point, isolated=True)
+    TRAIN_DATA = FeaturenetSingle_hf5(train, num_points=args.num_point, isolated=True)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
     VAL_DATA = FeaturenetSingle_hf5(val, num_points=args.num_point, isolated=True)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
@@ -166,9 +166,9 @@ def main(args):
         '''learning one epoch'''
         for i, (points, label, target) in tqdm(enumerate(trainDataLoader), total=len(trainDataLoader), smoothing=0.9):
             points = points.data.numpy()
-            #points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
-            #points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
-            # points[:, :, :] = provider.rotate_point_cloud_with_normal(points[:, :, :])
+            points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
+            points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
+            points[:, :, :] = provider.rotate_point_cloud_with_normal(points[:, :, :])
             
             points = torch.Tensor(points)
 

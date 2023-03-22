@@ -93,7 +93,7 @@ def calculate_class_weights(num_points_per_class):
     # Normalize weights so they sum up to one
     class_weights = class_weights / np.sum(class_weights)
 
-    return class_weights
+    return torch.Tensor(class_weights).cuda()
 
 @hydra.main(config_path='config', config_name='partseg', version_base=None)
 def main(args):
@@ -131,15 +131,15 @@ def main(args):
     
     class_weights = 1 / torch.log(1.02 + class_weights)
     
-    class_weights = calculate_class_weights(CLASS_FREQUENCY_ISOLATED).cuda()
+    class_weights = calculate_class_weights(CLASS_FREQUENCY_ISOLATED)
             
     ################### LOSS #################
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
-    # criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
+    criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
     # criterion = FocalLoss(gamma=5.0)
     # criterion = DiceLoss2(num_classes=args.num_class)
-    criterion = DiceLoss(num_classes=args.num_class)
+    # criterion = DiceLoss(num_classes=args.num_class)
 
 
     ##########################################
