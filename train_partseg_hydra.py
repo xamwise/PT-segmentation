@@ -23,22 +23,27 @@ import hydra
 import omegaconf
 
 
+from losses import FocalLoss, DiceLoss2, JaccardLoss, DiceLoss
+from metrics import classwise_IoU_single, f1_score_single, pointcloud_accuracy, classwise_pointcloud_accuracy
+
+
+
+CLASS_FREQUENCY = ...
+
+
 # seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 'Rocket': [41, 42, 43],
 #                'Car': [8, 9, 10, 11], 'Laptop': [28, 29], 'Cap': [6, 7], 'Skateboard': [44, 45, 46], 'Mug': [36, 37],
 #                'Guitar': [19, 20, 21], 'Bag': [4, 5], 'Lamp': [24, 25, 26, 27], 'Table': [47, 48, 49],
 #                'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
 # seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
-seg_classes = {'None': [0], 'Hole': [1], 'Chamfer': [2], 'Fillet': [3], 'Round': [4], 'Slot': [5], 'Pocket': [6],
+SEG_CLASSES = {'None': [0], 'Hole': [1], 'Chamfer': [2], 'Fillet': [3], 'Round': [4], 'Slot': [5], 'Pocket': [6],
                'Step': [7], 'Gear': [8], 'Thread': [9], 'Boss': [10], 'Circular_step': [11], 'Ring': [12]}
             #    'Gear': [13], 'Thread': [14], 'Boss': [15]}
-seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+SEG_LABEL_TO_CAT = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
-
-for cat in seg_classes.keys():
-    for label in seg_classes[cat]:
-        seg_label_to_cat[label] = cat
-
+for cat in SEG_CLASSES.keys():
+    SEG_LABEL_TO_CAT[SEG_CLASSES[cat][0]] = cat
 
 def inplace_relu(m):
     classname = m.__class__.__name__
@@ -83,26 +88,27 @@ def main(args):
     logger.info('Finished loading DataSet ...')
 
 
-    # for points, classes, seg in trainDataLoader:
-        
-    #     print(points.shape)
-    #     print(classes.shape)
-    #     print(seg.shape)
-        
-    #     exit()
-
     '''MODEL LOADING'''
-    args.input_dim = (6 if args.normal else 3) #+ 16
+    args.input_dim = (6 if args.normal else 3) 
     args.num_class = 13
     num_category = 13
     num_part = args.num_class
+    
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
+    
+            
+    ################### LOSS #################
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
     criterion = torch.nn.CrossEntropyLoss()
+    # criterion = FocalLoss(gamma=5.0)
+    # criterion = DiceLoss2(num_classes=args.num_class)
+    # criterion = DiceLoss(num_classes=args.num_class)
 
+
+    ##########################################
     try:
-        checkpoint = torch.load('./best_models/best_model.pth')
+        checkpoint = torch.load('./best_models/best_model_own_data.pth')
         start_epoch = checkpoint['epoch']
         classifier.load_state_dict(checkpoint['model_state_dict'])
         logger.info('Use pretrain model')
@@ -111,7 +117,7 @@ def main(args):
         start_epoch = 0
 
     if args.optimizer == 'Adam':
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.AdamW(
             classifier.parameters(),
             lr=args.learning_rate,
             betas=(0.9, 0.999),
@@ -119,7 +125,12 @@ def main(args):
             weight_decay=args.weight_decay
         )
     else:
-        optimizer = torch.optim.SGD(classifier.parameters(), lr=args.learning_rate, momentum=0.9)
+        optimizer = torch.optim.SGD(classifier.parameters(), 
+                                    lr=args.learning_rate, 
+                                    momentum=0.9, 
+                                    weight_decay=args.weight_decay,
+                                    nesterov=True
+                                    )
 
     def bn_momentum_adjust(m, momentum):
         if isinstance(m, torch.nn.BatchNorm2d) or isinstance(m, torch.nn.BatchNorm1d):
@@ -132,8 +143,8 @@ def main(args):
 
     best_acc = 0
     global_epoch = 0
-    best_class_avg_iou = 0
-    best_inctance_avg_iou = 0
+    best_avg_iou = 0
+    best_avg_acc = 0
 
     for epoch in range(start_epoch, args.epoch):
         mean_correct = []
@@ -154,28 +165,29 @@ def main(args):
         '''learning one epoch'''
         for i, (points, label, target) in tqdm(enumerate(trainDataLoader), total=len(trainDataLoader), smoothing=0.9):
             points = points.data.numpy()
-            points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
-            points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
+            #points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
+            #points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
+            # points[:, :, :] = provider.rotate_point_cloud_with_normal(points[:, :, :])
+            
             points = torch.Tensor(points)
 
-            # print(points)
-            # print(label)
-            # print(target)
-            # print(to_categorical(label, num_category))
             
             points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
             optimizer.zero_grad()
 
-            # seg_pred = classifier(torch.cat([points, to_categorical(label, num_category).repeat(1, points.shape[1], 1)], -1))
             # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
             seg_pred = classifier(points)
+            # loss = criterion(seg_pred, target)
 
             seg_pred = seg_pred.contiguous().view(-1, num_part)
             target = target.view(-1, 1)[:, 0]
             pred_choice = seg_pred.data.max(1)[1]
+            # correct = pred_choice.eq(target.data).cpu().sum()
+            # mean_correct.append(correct.item() / (args.batch_size * args.num_point))
 
-            correct = pred_choice.eq(target.data).cpu().sum()
-            mean_correct.append(correct.item() / (args.batch_size * args.num_point))
+            mean_correct.append(pointcloud_accuracy(seg_pred, target).cpu())
+
+            
             loss = criterion(seg_pred, target)
             loss.backward()
             optimizer.step()
@@ -185,100 +197,95 @@ def main(args):
 
         with torch.no_grad():
             test_metrics = {}
-            total_correct = 0
-            total_seen = 0
-            total_seen_class = [0 for _ in range(num_part)]
-            total_correct_class = [0 for _ in range(num_part)]
-            shape_ious = {cat: [] for cat in seg_classes.keys()}
-            seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+            mean_test_accuracy = []
+            mean_f1_score = []
+            classwise_iou = []
+            mean_iou_per_class = [[] for i in range(args.num_class)]
+            mean_accuracy_per_class = [[] for i in range(args.num_class)]
+            classwise_accuracies = []
+            classes_per_example = []
+            
+            mean_iou_classwise = []
+            mean_accuracy_classwise = []
 
-            for cat in seg_classes.keys():
-                for label in seg_classes[cat]:
-                    seg_label_to_cat[label] = cat
+       
 
             classifier = classifier.eval()
 
             for batch_id, (points, label, target) in tqdm(enumerate(valDataLoader), total=len(valDataLoader), smoothing=0.9):
                 cur_batch_size, NUM_POINT, _ = points.size()
                 points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
-                
                 # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
+
                 seg_pred = classifier(points)
+                
+                for predictions, target_labels in zip(seg_pred, target):
+                    
+                    
+                    
+                    classes_per_example = torch.unique(target_labels).cpu().tolist()
+                    mean_test_accuracy.append(pointcloud_accuracy(predictions, target_labels).cpu())
+                    mean_f1_score.append(f1_score_single(predictions, target_labels).cpu())
+                    
+                    classwise_accuracies = classwise_pointcloud_accuracy(predictions, target_labels)
+                    classwise_iou = classwise_IoU_single(predictions, target_labels, args.num_class).cpu()
+                    
+                    for ind_class in classes_per_example:
+                        mean_accuracy_per_class[ind_class].append(classwise_accuracies[ind_class])
+                        mean_iou_per_class[ind_class].append(classwise_iou[ind_class])
+                    check = True
+                    
+                            
+                
+            test_metrics['accuracy'] = np.mean(mean_test_accuracy)
+            test_metrics['mean_f1_score'] = np.mean(mean_f1_score)
+            
+            for classes_acc, classes_iou in zip(mean_accuracy_per_class, mean_iou_per_class):
+                mean_accuracy_classwise.append(np.mean(classes_acc))
+                mean_iou_classwise.append(np.mean(classes_iou))
+                
+            test_metrics['classwise_mIoU'] = mean_iou_classwise
+            test_metrics['mean_accuracy_per_class'] = mean_accuracy_classwise
+            
+            test_metrics['average_acc'] = np.mean(mean_accuracy_classwise)
+            test_metrics['average_iou'] = np.mean(mean_iou_classwise)
+            
+            
+            for cat in sorted(SEG_LABEL_TO_CAT.keys()):
+                name = SEG_LABEL_TO_CAT[cat]
+                logger.info('eval of %s mIoU %f mACC %f' % (name + ' ' * (14 - len(name)), mean_iou_classwise[cat], mean_accuracy_classwise[cat]))
+            
+            
+            # for cat in sorted(SEG_LABEL_TO_CAT.keys()):
+            #     name = SEG_LABEL_TO_CAT[cat]
+            #     logger.info('eval mACC of %s %f' % (name + ' ' * (14- len(name)), mean_accuracy_classwise[cat]))
 
-        
-                cur_pred_val = seg_pred.cpu().data.numpy()
-                cur_pred_val_logits = cur_pred_val
-                cur_pred_val = np.zeros((cur_batch_size, NUM_POINT)).astype(np.int32)
-                target = target.cpu().data.numpy()
-
-                for i in range(cur_batch_size):
-                    cat = seg_label_to_cat[target[i, 0]]
-                    logits = cur_pred_val_logits[i, :, :]
-                    cur_pred_val[i, :] = np.argmax(logits[:, seg_classes[cat]], 1) + seg_classes[cat][0]
-
-                correct = np.sum(cur_pred_val == target)
-                total_correct += correct
-                total_seen += (cur_batch_size * NUM_POINT)
-
-                for l in range(num_part):
-                    total_seen_class[l] += np.sum(target == l)
-                    total_correct_class[l] += (np.sum((cur_pred_val == l) & (target == l)))
-
-                for i in range(cur_batch_size):
-                    segp = cur_pred_val[i, :]
-                    segl = target[i, :]
-                    cat = seg_label_to_cat[segl[0]]
-                    part_ious = [0.0 for _ in range(len(seg_classes[cat]))]
-                    for l in seg_classes[cat]:
-                        if (np.sum(segl == l) == 0) and (
-                                np.sum(segp == l) == 0):  # part is not present, no prediction as well
-                            part_ious[l - seg_classes[cat][0]] = 1.0
-                        else:
-                            part_ious[l - seg_classes[cat][0]] = np.sum((segl == l) & (segp == l)) / float(
-                                np.sum((segl == l) | (segp == l)))
-                    shape_ious[cat].append(np.mean(part_ious))
-
-            all_shape_ious = []
-            for cat in shape_ious.keys():
-                for iou in shape_ious[cat]:
-                    all_shape_ious.append(iou)
-                shape_ious[cat] = np.mean(shape_ious[cat])
-            mean_shape_ious = np.mean(list(shape_ious.values()))
-            test_metrics['accuracy'] = total_correct / float(total_seen)
-            test_metrics['class_avg_accuracy'] = np.mean(
-                np.array(total_correct_class) / np.array(total_seen_class, dtype=np.float))
-            for cat in sorted(shape_ious.keys()):
-                logger.info('eval mIoU of %s %f' % (cat + ' ' * (14 - len(cat)), shape_ious[cat]))
-            test_metrics['class_avg_iou'] = mean_shape_ious
-            test_metrics['inctance_avg_iou'] = np.mean(all_shape_ious)
-
-        logger.info('Epoch %d test Accuracy: %f  Class avg mIOU: %f   Inctance avg mIOU: %f' % (
-            epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
-        if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
+        logger.info('Epoch %d test Accuracy: %f  Class avg mIOU: %f   Class avg Accuracy: %f' % (
+            epoch + 1, test_metrics['accuracy'], test_metrics['average_iou'], test_metrics['average_acc']))
+        if (test_metrics['average_iou'] >= best_avg_iou):
             logger.info('Save model...')
-            savepath = f'best_models/best_model_own_set_{str(args.num_point)}.pth'
+            savepath = f'best_models/best_model_own_data_{str(args.num_point)}.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,
                 'train_acc': train_instance_acc,
                 'test_acc': test_metrics['accuracy'],
-                'class_avg_iou': test_metrics['class_avg_iou'],
-                'inctance_avg_iou': test_metrics['inctance_avg_iou'],
+                'class_avg_iou': test_metrics['average_iou'],
+                'class_avg_acc': test_metrics['average_acc'],
                 'model_state_dict': classifier.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
             }
             torch.save(state, savepath)
             logger.info('Saving model....')
-
+            best_avg_iou = test_metrics['average_iou']
+            
         if test_metrics['accuracy'] > best_acc:
             best_acc = test_metrics['accuracy']
-        if test_metrics['class_avg_iou'] > best_class_avg_iou:
-            best_class_avg_iou = test_metrics['class_avg_iou']
-        if test_metrics['inctance_avg_iou'] > best_inctance_avg_iou:
-            best_inctance_avg_iou = test_metrics['inctance_avg_iou']
+        if test_metrics['average_acc'] > best_avg_acc:
+            best_avg_acc = test_metrics['average_acc']
         logger.info('Best accuracy is: %.5f' % best_acc)
-        logger.info('Best class avg mIOU is: %.5f' % best_class_avg_iou)
-        logger.info('Best inctance avg mIOU is: %.5f' % best_inctance_avg_iou)
+        logger.info('Best class avg mIOU is: %.5f' % best_avg_acc)
+        logger.info('Best class avg accracy is: %.5f' % best_avg_acc)
         global_epoch += 1
 
 
