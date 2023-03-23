@@ -201,9 +201,9 @@ def main(args):
         '''learning one epoch'''
         for i, (points, label, target) in tqdm(enumerate(trainDataLoader), total=len(trainDataLoader), smoothing=0.9):
             points = points.data.numpy()
-            #points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
-            #points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
-            # points[:, :, :] = provider.rotate_point_cloud_with_normal(points[:, :, :])
+            points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
+            points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
+            points[:, :, :] = provider.rotate_point_cloud_with_normal(points[:, :, :])
             
             points = torch.Tensor(points)
 
@@ -213,7 +213,7 @@ def main(args):
 
             # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
             seg_pred = classifier(points)
-            loss = criterion(seg_pred, target)
+            # loss = criterion(seg_pred, target)
 
             seg_pred = seg_pred.contiguous().view(-1, num_part)
             target = target.view(-1, 1)[:, 0]
@@ -224,7 +224,7 @@ def main(args):
             mean_correct.append(pointcloud_accuracy(seg_pred, target).cpu())
 
             
-            # loss = criterion(seg_pred, target)
+            loss = criterion(seg_pred, target)
             loss.backward()
             optimizer.step()
 
@@ -320,7 +320,7 @@ def main(args):
         if test_metrics['average_acc'] > best_avg_acc:
             best_avg_acc = test_metrics['average_acc']
         logger.info('Best accuracy is: %.5f' % best_acc)
-        logger.info('Best class avg mIOU is: %.5f' % best_avg_acc)
+        logger.info('Best class avg mIOU is: %.5f' % best_avg_iou)
         logger.info('Best class avg accracy is: %.5f' % best_avg_acc)
         global_epoch += 1
 

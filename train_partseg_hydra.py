@@ -301,7 +301,7 @@ def main(args):
         if test_metrics['average_acc'] > best_avg_acc:
             best_avg_acc = test_metrics['average_acc']
         logger.info('Best accuracy is: %.5f' % best_acc)
-        logger.info('Best class avg mIOU is: %.5f' % best_avg_acc)
+        logger.info('Best class avg mIOU is: %.5f' % best_avg_iou)
         logger.info('Best class avg accracy is: %.5f' % best_avg_acc)
         global_epoch += 1
 
