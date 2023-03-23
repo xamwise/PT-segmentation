@@ -25,28 +25,31 @@ import omegaconf
 from losses import FocalLoss, DiceLoss2, JaccardLoss, DiceLoss
 from metrics import classwise_IoU_single, f1_score_single, pointcloud_accuracy, classwise_pointcloud_accuracy
 
+CLASS_FREQU = [99573134, 994601, 1097071, 719771, 999449, 1326766, 734322, 888724, 1148706, 710456, 619449, 881856, 1354475,
+                435681, 548105, 634395, 927556, 1025156, 965642, 688556, 704252, 830863, 317449, 1132751, 740814]
 
 
-# SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
-#                'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
-#                'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
-#                'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
-#                'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
-#                '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
-#                'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
-#                '6_sides_pocket': [24]}
+
+SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
+               'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
+               'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
+               'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
+               'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
+               '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
+               'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
+               '6_sides_pocket': [24]}
 SEG_LABEL_TO_CAT = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
 
 
-SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
-               'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
-               'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
-               'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
-               'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
-               '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
-               'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
-               '6_sides_pocket': [23]}
+# SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
+#                'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
+#                'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
+#                'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
+#                'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
+#                '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
+#                'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
+#                '6_sides_pocket': [23]}
 
 
 for cat in SEG_CLASSES.keys():
@@ -65,6 +68,19 @@ def to_categorical(y, num_classes):
         return new_y.cuda()
     return new_y
 
+def calculate_class_weights(num_points_per_class):
+    total_points = np.sum(num_points_per_class)
+    num_classes = len(num_points_per_class)
+    class_weights = [0] * num_classes
+
+    for i in range(num_classes):
+        class_weights[i] = total_points / (num_classes * num_points_per_class[i])
+
+    # Normalize weights so they sum up to one
+    class_weights = class_weights / np.sum(class_weights)
+
+    return torch.Tensor(class_weights).cuda()
+
 @hydra.main(config_path='config', config_name='partseg', version_base=None)
 def main(args):
     omegaconf.OmegaConf.set_struct(args, False)
@@ -75,15 +91,15 @@ def main(args):
 
     print(args)#.pretty())
 
-    examples = provider.get_example_list('',num_examples = 23977, f5 = True)
+    examples = provider.get_example_list('',num_examples = 24000, f5 = True)
     
     train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
     
-    TRAIN_DATA = FeaturenetSingle_hf5(train, num_points=args.num_point, isolated=True)
+    TRAIN_DATA = FeaturenetSingle_hf5(train, num_points=args.num_point, isolated=False)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
-    VAL_DATA = FeaturenetSingle_hf5(val, num_points=args.num_point, isolated=True)
+    VAL_DATA = FeaturenetSingle_hf5(val, num_points=args.num_point, isolated=False)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
-    TEST_DATA = FeaturenetSingle_hf5(test, num_points=args.num_point, isolated=True)
+    TEST_DATA = FeaturenetSingle_hf5(test, num_points=args.num_point, isolated=False)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
 
     logger.info('Finished loading DataSet ...')
@@ -91,17 +107,18 @@ def main(args):
 
     '''MODEL LOADING'''
     args.input_dim = (6 if args.normal else 3) 
-    args.num_class = 24
-    num_category = 24
+    args.num_class = 25
+    num_category = 25
     num_part = args.num_class
     
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
     
             
+    class_weights = calculate_class_weights(CLASS_FREQU)
     ################### LOSS #################
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
     # criterion = FocalLoss(gamma=5.0)
     # criterion = DiceLoss2(num_classes=args.num_class)
     # criterion = DiceLoss(num_classes=args.num_class)
