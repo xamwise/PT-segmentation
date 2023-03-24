@@ -301,7 +301,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['average_iou'], test_metrics['average_acc']))
         if (test_metrics['average_iou'] >= best_avg_iou):
             logger.info('Save model...')
-            savepath = f'best_models/best_model_featurenet_multi_32nn_{str(args.num_point)}.pth'
+            savepath = f'best_models/best_model_featurenet_multi_16nn_{str(args.num_point)}.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,
