@@ -119,10 +119,10 @@ def main(args):
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
     # criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
-    criterion = torch.nn.CrossEntropyLoss()
+    # criterion = torch.nn.CrossEntropyLoss()
     # criterion = FocalLoss(gamma=5.0)
     # criterion = DiceLoss2(num_classes=args.num_class)
-    # criterion = DiceLoss(num_classes=args.num_class)
+    criterion = DiceLoss(num_classes=args.num_class)
 
 
     ##########################################
@@ -196,7 +196,7 @@ def main(args):
 
             # seg_pred = classifier(torch.cat([points, torch.unsqueeze(label, 1).repeat(1, points.shape[1], 1)], -1))
             seg_pred = classifier(points)
-            # loss = criterion(seg_pred, target)
+            loss = criterion(seg_pred, target)
 
             seg_pred = seg_pred.contiguous().view(-1, num_part)
             target = target.view(-1, 1)[:, 0]
@@ -207,7 +207,7 @@ def main(args):
             mean_correct.append(pointcloud_accuracy(seg_pred, target).cpu())
 
             
-            loss = criterion(seg_pred, target)
+            # loss = criterion(seg_pred, target)
             loss.backward()
             optimizer.step()
 
@@ -283,7 +283,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['average_iou'], test_metrics['average_acc']))
         if (test_metrics['average_iou'] >= best_avg_iou):
             logger.info('Save model...')
-            savepath = f'best_models/best_model_featurenet_single_cubesiunbalamnced_ce_{str(args.num_point)}.pth'
+            savepath = f'best_models/best_model_featurenet_single_cubes_dice_loss_{str(args.num_point)}.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,
