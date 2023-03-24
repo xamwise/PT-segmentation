@@ -120,9 +120,9 @@ def main(args):
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
     # criterion = torch.nn.CrossEntropyLoss(weight=class_weights)
     # criterion = torch.nn.CrossEntropyLoss()
-    # criterion = FocalLoss(gamma=5.0)
+    criterion = FocalLoss(gamma=3.0)
     # criterion = DiceLoss2(num_classes=args.num_class)
-    criterion = DiceLoss(num_classes=args.num_class)
+    # criterion = DiceLoss(num_classes=args.num_class)
 
 
     ##########################################
