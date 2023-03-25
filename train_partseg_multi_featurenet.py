@@ -127,9 +127,9 @@ def main(args):
     
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
     
-    class_weights = torch.tensor(CLASS_FREQUENCY_ISOLATED).cuda()
+    # class_weights = torch.tensor(CLASS_FREQUENCY_ISOLATED).cuda()
     
-    class_weights = 1 / torch.log(1.02 + class_weights)
+    # class_weights = 1 / torch.log(1.02 + class_weights)
     
     class_weights = calculate_class_weights(CLASS_FREQUENCY_ISOLATED)
             
@@ -312,7 +312,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['average_iou'], test_metrics['average_acc']))
         if (test_metrics['average_iou'] >= best_avg_iou):
             logger.info('Save model...')
-            savepath = f'best_models/best_model_featurenet_multi_16nn_{str(args.num_point)}.pth'
+            savepath = f'best_models/best_model_featurenet_multi_16nn_isolated_{str(args.num_point)}.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,
