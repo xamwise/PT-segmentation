@@ -320,6 +320,7 @@ def main(args):
     print(f'{class_acc=}')
     print(f'{iou=}')
 
+    print(args)
 
 if __name__ == '__main__':
     main()
