@@ -176,6 +176,11 @@ def main(args):
     MOMENTUM_ORIGINAL = 0.1
     MOMENTUM_DECCAY = 0.5
     MOMENTUM_DECCAY_STEP = args.step_size
+    
+    train_acc = []
+    test_acc = []
+    iou = []
+    class_acc = []
 
     best_acc = 0
     global_epoch = 0
@@ -287,6 +292,12 @@ def main(args):
             test_metrics['average_acc'] = np.mean(mean_accuracy_classwise)
             test_metrics['average_iou'] = np.mean(mean_iou_classwise)
             
+            train_acc.append(test_metrics['accuracy'])
+            test_acc.append(test_metrics['accuracy'])
+            iou.append(test_metrics['average_iou'])
+            class_acc.append(test_metrics['average_acc'])
+            
+            
             
             for cat in sorted(SEG_LABEL_TO_CAT.keys()):
                 name = SEG_LABEL_TO_CAT[cat]
@@ -324,6 +335,14 @@ def main(args):
         logger.info('Best class avg mIOU is: %.5f' % best_avg_iou)
         logger.info('Best class avg accracy is: %.5f' % best_avg_acc)
         global_epoch += 1
+        
+    
+    print(f'{train_acc=}')
+    print(f'{test_acc=}')
+    print(f'{class_acc=}')
+    print(f'{iou=}')
+
+    print(args)
 
 
 if __name__ == '__main__':
