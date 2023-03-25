@@ -7,7 +7,7 @@ optimizer: Adam
 weight_decay: 1e-6
 normal: True
 lr_decay: 0.1
-step_size: 100
+step_size: 400
 
 defaults:
    #- model: Zhao

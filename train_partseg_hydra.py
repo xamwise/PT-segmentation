@@ -91,7 +91,7 @@ def main(args):
 
     examples = provider.get_example_list('',num_examples = 1007, f5 = True)
     
-    train, test, val = provider.train_test_split(examples, val=True)
+    train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
     
     TRAIN_DATA = FFMachiningModels_hf5(train, num_points=args.num_point)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
