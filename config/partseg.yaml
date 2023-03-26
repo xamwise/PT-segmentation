@@ -1,18 +1,18 @@
 batch_size: 16
 epoch: 400
-learning_rate: 0.001
+learning_rate: 0.05
 gpu: 0
 num_point: 2056
 optimizer: Adam
 weight_decay: 1e-6
 normal: True
-lr_decay: 0.5
-step_size: 400
+lr_decay: 0.1
+step_size: 150
 
 defaults:
    #- model: Zhao
-  #  - model: Hengshuang
-   - model: Pointnet
+   - model: Hengshuang
+  #  - model: Pointnet
 
 hydra:
   run:
