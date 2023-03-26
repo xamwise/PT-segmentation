@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from pointnet2_utils import PointNetSetAbstraction,PointNetFeaturePropagation
+from .pointnet2_utils import PointNetSetAbstraction,PointNetFeaturePropagation
 
 
 class PointTransformerSeg(nn.Module):
