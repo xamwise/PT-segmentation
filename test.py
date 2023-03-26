@@ -39,8 +39,8 @@ def visualize_point_cloud(points, labels, num_classes):
 
 
 SEG_CLASSES_OWN = {'None': [0], 'Hole': [1], 'Chamfer': [2], 'Fillet': [3], 'Round': [4], 'Slot': [5], 'Pocket': [6],
-               'Step': [7], 'Gear': [8], 'Thread': [9], 'Boss': [10], 'Circular_step': [11], 'Ring': [12],
-                'Gear': [13], 'Thread': [14], 'Boss': [15]}
+               'Step': [7], 'Gear': [8], 'Thread': [9], 'Boss': [10], 'Circular_step': [11], 'Ring': [12]}
+                # 'Gear': [13], 'Thread': [14], 'Boss': [15]}
 SEG_LABEL_TO_CAT_OWN = {}  
 
 for cat in SEG_CLASSES_OWN.keys():
@@ -48,26 +48,26 @@ for cat in SEG_CLASSES_OWN.keys():
 
 
 
-# SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
-#                'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
-#                'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
-#                'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
-#                'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
-#                '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
-#                'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
-#                '6_sides_pocket': [24]}
+SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
+               'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
+               'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
+               'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
+               'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
+               '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
+               'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
+               '6_sides_pocket': [24]}
 SEG_LABEL_TO_CAT = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
 
 
-SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
-               'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
-               'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
-               'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
-               'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
-               '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
-               'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
-               '6_sides_pocket': [23]}
+# SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
+#                'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
+#                'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
+#                'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
+#                'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
+#                '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
+#                'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
+#                '6_sides_pocket': [23]}
 
 
 for cat in SEG_CLASSES.keys():
@@ -119,8 +119,8 @@ def main(args):
 
     '''MODEL LOADING'''
     args.input_dim = (6 if args.normal else 3) 
-    args.num_class = 24
-    num_category = 24
+    args.num_class = 25
+    num_category = 25
     num_part = args.num_class
     
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
@@ -129,7 +129,7 @@ def main(args):
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
     
-    checkpoint = torch.load('./best_models/best_model_featurenet_single_1024.pth')
+    checkpoint = torch.load('./best_models/best_model_featurenet_single_cubes_2048.pth')
      
     start_epoch = checkpoint['epoch']
     classifier.load_state_dict(checkpoint['model_state_dict'])
@@ -170,9 +170,7 @@ def main(args):
             
             for predictions, target_labels in zip(seg_pred, target):
                 
-            
-                print(torch.unique(torch.argmax(predictions, dim=1)))    
-                
+                            
                 classes_per_example = torch.unique(target_labels).cpu().tolist()
                 mean_test_accuracy.append(pointcloud_accuracy(predictions, target_labels).cpu())
                 mean_f1_score.append(f1_score_single(predictions, target_labels).cpu())

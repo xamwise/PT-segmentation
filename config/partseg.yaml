@@ -1,5 +1,5 @@
 batch_size: 16
-epoch: 1000
+epoch: 400
 learning_rate: 0.001
 gpu: 0
 num_point: 2048
@@ -11,7 +11,8 @@ step_size: 400
 
 defaults:
    #- model: Zhao
-   - model: Hengshuang
+  #  - model: Hengshuang
+   - model: Pointet
 
 hydra:
   run:

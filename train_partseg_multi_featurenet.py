@@ -23,6 +23,7 @@ import omegaconf
 
 from losses import FocalLoss, DiceLoss2, JaccardLoss, DiceLoss
 from metrics import classwise_IoU_single, f1_score_single, pointcloud_accuracy, classwise_pointcloud_accuracy
+from torchinfo import summary
 
 
 CLASS_FREQUENCY_ABS = [7308235, 154067, 242495, 115491, 128301, 109193, 107836, 140782, 82602, 43146,
@@ -141,7 +142,7 @@ def main(args):
     # criterion = FocalLoss(gamma=5.0)
     # criterion = DiceLoss2(num_classes=args.num_class)
     # criterion = DiceLoss(num_classes=args.num_class)
-
+    
 
     ##########################################
     try:
