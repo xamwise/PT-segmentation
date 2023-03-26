@@ -1,13 +1,13 @@
 batch_size: 16
-epoch: 400
+epoch: 300
 learning_rate: 0.001
 gpu: 0
-num_point: 1024
+num_point: 2048
 optimizer: Adam
 weight_decay: 1e-6
 normal: True
-lr_decay: 0.1
-step_size: 150
+lr_decay: 0.5
+step_size: 200
 
 defaults:
    #- model: Zhao
