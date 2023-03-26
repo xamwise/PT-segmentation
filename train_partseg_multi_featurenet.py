@@ -42,24 +42,24 @@ CLASS_FREQUENCY_ISOLATED = [128775, 214315, 117029, 121589, 184643, 104213, 1275
                             62311, 94361, 101504, 158365, 140393, 87201, 92672, 158194, 73292, 160991, 121460]
 
 
-# SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
-#                'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
-#                'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
-#                'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
-#                'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
-#                '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
-#                'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
-#                '6_sides_pocket': [24]}
+SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
+               'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
+               'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
+               'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
+               'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
+               '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
+               'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
+               '6_sides_pocket': [24]}
 
 
-SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
-               'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
-               'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
-               'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
-               'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
-               '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
-               'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
-               '6_sides_pocket': [23]}
+# SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
+#                'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
+#                'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
+#                'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
+#                'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
+#                '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
+#                'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
+#                '6_sides_pocket': [23]}
 
 
 
@@ -109,11 +109,11 @@ def main(args):
     
     train, test, val = provider.train_test_split(examples, val=True)
     
-    TRAIN_DATA = FeaturenetMulti_hf5(train, num_points=args.num_point, isolated=True)
+    TRAIN_DATA = FeaturenetMulti_hf5(train, num_points=args.num_point, isolated=False)
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATA, batch_size=args.batch_size, shuffle=True)
-    VAL_DATA = FeaturenetMulti_hf5(val, num_points=args.num_point, isolated=True)
+    VAL_DATA = FeaturenetMulti_hf5(val, num_points=args.num_point, isolated=False)
     valDataLoader = torch.utils.data.DataLoader(VAL_DATA, batch_size=args.batch_size, shuffle=True)
-    TEST_DATA = FeaturenetMulti_hf5(test, num_points=args.num_point, isolated=True)
+    TEST_DATA = FeaturenetMulti_hf5(test, num_points=args.num_point, isolated=False)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
 
     logger.info('Finished loading DataSet ...')
@@ -121,8 +121,8 @@ def main(args):
 
     '''MODEL LOADING'''
     args.input_dim = (6 if args.normal else 3) 
-    args.num_class = 24
-    num_category = 24
+    args.num_class = 25
+    num_category = 25
     num_part = args.num_class
     
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
@@ -131,7 +131,8 @@ def main(args):
     
     # class_weights = 1 / torch.log(1.02 + class_weights)
     
-    class_weights = calculate_class_weights(CLASS_FREQUENCY_ISOLATED)
+    # class_weights = calculate_class_weights(CLASS_FREQUENCY_ISOLATED)
+    class_weights = calculate_class_weights(CLASS_FREQUENCY_ABS)
             
     ################### LOSS #################
 
@@ -312,7 +313,7 @@ def main(args):
             epoch + 1, test_metrics['accuracy'], test_metrics['average_iou'], test_metrics['average_acc']))
         if (test_metrics['average_iou'] >= best_avg_iou):
             logger.info('Save model...')
-            savepath = f'best_models/best_model_featurenet_multi_16nn_isolated_{str(args.num_point)}.pth'
+            savepath = f'best_models/best_model_featurenet_multi_16nn_cubes_{str(args.num_point)}.pth'
             logger.info('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,

@@ -25,37 +25,49 @@ import omegaconf
 from losses import FocalLoss, DiceLoss2, JaccardLoss, DiceLoss
 from metrics import classwise_IoU_single, f1_score_single, pointcloud_accuracy, classwise_pointcloud_accuracy
 
+import matplotlib.pyplot as plt
+import open3d as o3d
+import numpy as np
+
+def visualize_point_cloud(points, labels, num_classes):
+    colors = plt.get_cmap("tab10")(labels / (num_classes - 1))[:, :3]
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.colors = o3d.utility.Vector3dVector(colors)
+    o3d.visualization.draw_geometries([pcd])
+
+
 
 SEG_CLASSES_OWN = {'None': [0], 'Hole': [1], 'Chamfer': [2], 'Fillet': [3], 'Round': [4], 'Slot': [5], 'Pocket': [6],
-               'Step': [7], 'Gear': [8], 'Thread': [9], 'Boss': [10], 'Circular_step': [11], 'Ring': [12]}
-            #    'Gear': [13], 'Thread': [14], 'Boss': [15]}
-SEG_LABEL_TO_CAT_OWN = {}  # {0:Airplane, 1:Airplane, ...49:Table}
+               'Step': [7], 'Gear': [8], 'Thread': [9], 'Boss': [10], 'Circular_step': [11], 'Ring': [12],
+                'Gear': [13], 'Thread': [14], 'Boss': [15]}
+SEG_LABEL_TO_CAT_OWN = {}  
 
 for cat in SEG_CLASSES_OWN.keys():
     SEG_LABEL_TO_CAT_OWN[SEG_CLASSES_OWN[cat][0]] = cat
 
 
 
-SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
-               'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
-               'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
-               'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
-               'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
-               '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
-               'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
-               '6_sides_pocket': [24]}
+# SEG_CLASSES = {'None': [0], 'Ring': [1], 'Through_Hole': [2], 'Blind_Hole': [3], 'Triangular_passage': [4], 
+#                'Rectangular_passage': [5], 'Circular_through_slot': [6], 'Triangular_through_slot': [7],
+#                'Rectangular_through_slot': [8], 'Rectangular_blind_slot': [9], 'Triangular_pocket': [10],
+#                'Rectangular_pocket': [11], 'Circular_end_pocket': [12], 'Triangular_blind_step': [13], 
+#                'Circular_blind_step': [14],'Rectangular_blind_step': [15], 'Rectangular_through_step': [16],
+#                '2_sides_through_step': [17], 'slanted_through_step': [18], 'chamfer': [19], 'round': [20],
+#                'v_circular_end_blind_slot': [21], 'h_circular_end_blind_slot': [22], '6_sides_passage': [23],
+#                '6_sides_pocket': [24]}
 SEG_LABEL_TO_CAT = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 
 
 
-# SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
-#                'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
-#                'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
-#                'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
-#                'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
-#                '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
-#                'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
-#                '6_sides_pocket': [23]}
+SEG_CLASSES = {'Ring': [0], 'Through_Hole': [1], 'Blind_Hole': [2], 'Triangular_passage': [3], 
+               'Rectangular_passage': [4], 'Circular_through_slot': [5], 'Triangular_through_slot': [6],
+               'Rectangular_through_slot': [7], 'Rectangular_blind_slot': [8], 'Triangular_pocket': [9],
+               'Rectangular_pocket': [10], 'Circular_end_pocket': [11], 'Triangular_blind_step': [12], 
+               'Circular_blind_step': [13],'Rectangular_blind_step': [14], 'Rectangular_through_step': [15],
+               '2_sides_through_step': [16], 'slanted_through_step': [17], 'chamfer': [18], 'round': [19],
+               'v_circular_end_blind_slot': [20], 'h_circular_end_blind_slot': [21], '6_sides_passage': [22],
+               '6_sides_pocket': [23]}
 
 
 for cat in SEG_CLASSES.keys():
@@ -75,7 +87,7 @@ def to_categorical(y, num_classes):
     return new_y
 
 
-@hydra.main(config_path='config', config_name='partseg', version_base=None)
+@hydra.main(config_path='config', config_name='inference', version_base=None)
 def main(args):
     omegaconf.OmegaConf.set_struct(args, False)
 
@@ -85,19 +97,21 @@ def main(args):
 
     print(args)#.pretty())
 
-    examples = provider.get_example_list('',num_examples = 1007, f5 = True)
+    # examples = provider.get_example_list('',num_examples = 1007, f5 = True)
     
-    # train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
+    # # train, test, val = provider.train_test_split(examples, val=True, split_ratio=0.1, val_ratio=0.1)
     
-    TEST_DATA_OWN = FFMachiningModels_hf5(examples, num_points=args.num_point)
-    testDataLoader = torch.utils.data.DataLoader(TEST_DATA_OWN, batch_size=args.batch_size, shuffle=True)
+    # TEST_DATA_OWN = FFMachiningModels_hf5(examples, num_points=args.num_point)
+    # testDataLoader = torch.utils.data.DataLoader(TEST_DATA_OWN, batch_size=args.batch_size, shuffle=True)
     
     examples2 = provider.get_example_list('',num_examples = 1000, f5 = True)
     
-    # train, test, val = provider.train_test_split(examples2, val=True)
+    train, test, val = provider.train_test_split(examples2, val=True)
     
     TEST_DATA = FeaturenetMulti_hf5(examples2, num_points=args.num_point, isolated=True)
     testDataLoader = torch.utils.data.DataLoader(TEST_DATA, batch_size=args.batch_size, shuffle=True)
+    
+    
     
 
     logger.info('Finished loading DataSet ...')
@@ -105,8 +119,8 @@ def main(args):
 
     '''MODEL LOADING'''
     args.input_dim = (6 if args.normal else 3) 
-    args.num_class = 25
-    num_category = 25
+    args.num_class = 24
+    num_category = 24
     num_part = args.num_class
     
     shutil.copy(hydra.utils.to_absolute_path('models/{}/model.py'.format(args.model.name)), '.')
@@ -115,10 +129,18 @@ def main(args):
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
     
-    checkpoint = torch.load('./best_models/best_model_featurenet_single.pth')
+    checkpoint = torch.load('./best_models/best_model_featurenet_single_2048.pth')
+     
     start_epoch = checkpoint['epoch']
     classifier.load_state_dict(checkpoint['model_state_dict'])
     logger.info('Loaded pretrained model')
+   
+    # h = classifier.state_dict()
+    # print("Model's state_dict:")
+    # for param_tensor in classifier.state_dict():
+    #     print(param_tensor, "\t", classifier.state_dict()[param_tensor].size())
+   
+    
    
 
     with torch.no_grad():
