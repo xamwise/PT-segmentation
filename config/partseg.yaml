@@ -12,7 +12,7 @@ step_size: 400
 defaults:
    #- model: Zhao
   #  - model: Hengshuang
-   - model: Pointet
+   - model: Pointnet
 
 hydra:
   run:
