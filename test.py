@@ -129,7 +129,7 @@ def main(args):
 
     classifier = getattr(importlib.import_module('models.{}.model'.format(args.model.name)), 'PointTransformerSeg')(args).cuda()
     
-    checkpoint = torch.load('./best_models/best_model_featurenet_single_2048.pth')
+    checkpoint = torch.load('./best_models/best_model_featurenet_single_1024.pth')
      
     start_epoch = checkpoint['epoch']
     classifier.load_state_dict(checkpoint['model_state_dict'])
@@ -167,9 +167,11 @@ def main(args):
 
             seg_pred = classifier(points)
             
+            
             for predictions, target_labels in zip(seg_pred, target):
                 
-                
+            
+                print(torch.unique(torch.argmax(predictions, dim=1)))    
                 
                 classes_per_example = torch.unique(target_labels).cpu().tolist()
                 mean_test_accuracy.append(pointcloud_accuracy(predictions, target_labels).cpu())

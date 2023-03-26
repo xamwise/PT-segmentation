@@ -2,7 +2,7 @@ batch_size: 16
 epoch: 300
 learning_rate: 0.001
 gpu: 0
-num_point: 4096
+num_point: 2048
 optimizer: Adam
 weight_decay: 1e-6
 normal: True
