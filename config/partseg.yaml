@@ -6,13 +6,13 @@ num_point: 2056
 optimizer: Adam
 weight_decay: 1e-6
 normal: True
-lr_decay: 0.1
-step_size: 150
+lr_decay: 0.01
+step_size: 400
 
 defaults:
    #- model: Zhao
-   - model: Hengshuang
-  #  - model: Pointnet
+  #  - model: Hengshuang
+   - model: Pointnet
 
 hydra:
   run:
