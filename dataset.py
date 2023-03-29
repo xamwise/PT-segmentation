@@ -9,6 +9,50 @@ import h5py
 # import pptk
 
 from provider import train_test_split, get_example_list
+from sklearn.neighbors import KNeighborsClassifier
+
+transform_labels = {0: 0,
+                        1: 1,
+                        2: 1,
+                        3: 2,
+                        4: 3,
+                        5: 4,
+                        6: 5,
+                        7: 6,
+                        8: 5,
+                        9: 6,
+                        10: 7,
+                        11: 7,
+                        12: 6,
+                        13: 8,
+                        14: 9,
+                        15: 10,
+                        16: 11,
+                        17 : 12}
+
+def triangle_center_3d(v1, v2, v3):
+    # Calculate the centroid of the triangle
+    x = (v1[0] + v2[0] + v3[0]) / 3
+    y = (v1[1] + v2[1] + v3[1]) / 3
+    z = (v1[2] + v2[2] + v3[2]) / 3
+    
+    return np.asarray([x,y,z])
+
+def scale(point: list, mean: float, maxi: float, mini: float) -> float:
+    
+    return np.asarray([2 * (point[0] - mean)/(maxi-mini), 2 * (point[1] - mean)/(maxi-mini), 2 * (point[2] - mean)/(maxi-mini)])
+
+def pad_along_axis(array: np.ndarray, target_length: int, axis: int = 0) -> np.ndarray:
+
+    pad_size = target_length - array.shape[axis]
+
+    if pad_size <= 0:
+        return array
+
+    npad = [(0, 0)] * array.ndim
+    npad[axis] = (0, pad_size)
+
+    return np.pad(array, pad_width=npad, mode='constant', constant_values=0)
 
 
 class ModelNetDataLoader(Dataset):
@@ -171,14 +215,15 @@ class PartNormalDataset(Dataset):
 ########### MANUFACTURING FEATURES ###############
     
 class FFMaachiningModels(Dataset):
-    def __init__(self, examples: list, datapath = './data', num_points = 20000, num_classes = 16, is_normals = True) -> None:
+    def __init__(self, examples: list, datapath = './data/own', num_points = 20000, num_classes = 16, is_normals = True) -> None:
         
         self.datapath = datapath
         self.num_points = num_points
         self.num_classes = num_classes
-        self.point_datapath = f"{self.datapath}/clouds"
-        self.stl_datapath =  f"{self.datapath}/all_stl"
-        self.label_path = f"{self.datapath}/labels"
+        self.point_datapath = f"{self.datapath}/pcd"
+        self.point_datapath_normalized = f"{self.datapath}/pcd_normalized"
+        self.stl_datapath =  f"{self.datapath}/own_stl"
+        self.label_path = f"{self.datapath}/own_labels"
         self.examples = examples
         self.is_normals = is_normals
         
@@ -188,23 +233,43 @@ class FFMaachiningModels(Dataset):
     
     def __getitem__(self, index):
         
-        pcd = o3d.io.read_point_cloud(f"{self.point_datapath}/{self.examples[index]}.pcd")
+        pcd_unprocessed = o3d.io.read_point_cloud(f"{self.point_datapath}/{self.examples[index]}.pcd")
+        pcd_unprocessed = np.asarray(pcd_unprocessed.points)
         pointlabels = []
+        
+        pcd = o3d.io.read_point_cloud(f"{self.point_datapath_normalized}/{self.examples[index]}.pcd")
         
         with open(f"{self.label_path}/{self.examples[index]}.txt") as f:
             for line in f.readlines():
                 # strs = line.split(' ')
-                pointlabels.append(int(line))
+                pointlabels.append(transform_labels[int(line)])
                 
         points = np.asarray(pcd.points)
         normals = np.asarray(pcd.normals)
-        classes = list(set(pointlabels))
-        class_encoded = np.zeros(self.num_classes)
-        
-        for ind in classes:
-            class_encoded[ind] = 1
             
         pointlabels = np.array(pointlabels)
+        
+        glob_mean = np.mean(pcd_unprocessed)
+        glob_max = np.max(pcd_unprocessed)
+        glob_min = np.min(pcd_unprocessed)
+
+        mesh = o3d.io.read_triangle_mesh(f"{self.stl_datapath}/{self.examples[index]}.stl")
+        
+
+        vertices = np.asarray(mesh.vertices)
+        loaded_faces = np.asarray(mesh.triangles)
+        centroids = [triangle_center_3d(vertices[face[0]], vertices[face[1]], vertices[face[2]]) for face in loaded_faces]
+        
+        scaled_centroids = [scale(centroid, glob_mean, glob_max, glob_min) for centroid in centroids]
+        
+        # visualize_point_cloud(points, pointlabels, 25)
+        
+        pointlabels = np.array(pointlabels)
+        
+        c1 = KNeighborsClassifier(n_neighbors=3)
+        c1.fit(points, pointlabels)
+        ground_truth = c1.predict(scaled_centroids)
+    
         
         if self.num_points != 20000:
             
@@ -219,12 +284,18 @@ class FFMaachiningModels(Dataset):
             #     points = points[::ratio]
             #     normals = normals[::ratio]
             #     pointlabels = pointlabels[::ratio]
-        
+          
+        max_length = 500000
+        length = len(ground_truth) 
+        pad_length = max_length - length
+        scaled_centroids = np.concatenate((np.asarray(scaled_centroids), np.zeros((pad_length, 3))), axis = 0) 
+        ground_truth = np.pad(ground_truth, (0,pad_length)) 
+             
         if self.is_normals:
             pointdata = np.concatenate((points, normals), axis=1)
-            return pointdata, class_encoded, pointlabels 
+            return pointdata, pointlabels, scaled_centroids, ground_truth, length, f"{self.stl_datapath}/{self.examples[index]}.stl"
         else:
-            return points, class_encoded, pointlabels 
+            return points, pointlabels, scaled_centroids, ground_truth, length, f"{self.stl_datapath}/{self.examples[index]}.stl"
         
         
         
@@ -234,8 +305,9 @@ class FeaturenetSingle(Dataset):
         self.datapath = datapath
         self.num_points = num_points
         self.num_classes = num_classes
-        self.point_datapath = f"{self.datapath}/featurenet_pcd_normalized"
-        self.stl_datapath =  f"{self.datapath}/featurenet_stl"
+        self.point_datapath = f"{self.datapath}/featurenet_pcd"
+        self.point_datapath_normalized = f"{self.datapath}/featurenet_pcd_normalized"
+        self.stl_datapath =  f"{self.datapath}/featurenet_stl_all"
         self.label_path = f"{self.datapath}/featurenet_labels"
         self.examples = examples
         self.is_normals = is_normals
@@ -247,34 +319,47 @@ class FeaturenetSingle(Dataset):
     
     def __getitem__(self, index):
         
-        pcd = o3d.io.read_point_cloud(f"{self.point_datapath}/{self.examples[index]}.pcd")
+        
+        # pcd_unprocessed = o3d.io.read_point_cloud(f"{self.point_datapath}/{self.examples[index]}.pcd")
+        # pcd_unprocessed = np.asarray(pcd_unprocessed.points)
         pointlabels = []
+        
+        pcd = o3d.io.read_point_cloud(f"{self.point_datapath_normalized}/{self.examples[index]}.pcd")
         
         with open(f"{self.label_path}/{self.examples[index]}.txt") as f:
             for line in f.readlines():
                 # strs = line.split(' ')
                 pointlabels.append(int(line) + 1)
-                
+          
         points = np.asarray(pcd.points)
         normals = np.asarray(pcd.normals)
-        # classes = int(self.examples[index].split('_')[0])
-        
-        classes = list(set(pointlabels))
-        class_encoded = np.zeros(self.num_classes)
-        
-        for ind in classes:
-            if ind == 81:
-                class_encoded[9] = 1
-                
-                for i, label in enumerate(pointlabels):
-                    if label == 81:
-                        pointlabels[i] = 9
-            else:
-                if ind != 0:
-                    class_encoded[ind] = 1
-            
             
         pointlabels = np.array(pointlabels)
+        
+        # glob_mean = np.mean(pcd_unprocessed)
+        # glob_max = np.max(pcd_unprocessed)
+        # glob_min = np.min(pcd_unprocessed)
+
+        mesh = o3d.io.read_triangle_mesh(f"{self.stl_datapath}/{self.examples[index]}.STL")
+        
+
+        vertices = np.asarray(mesh.vertices)
+        loaded_faces = np.asarray(mesh.triangles)
+        centroids = [triangle_center_3d(vertices[face[0]], vertices[face[1]], vertices[face[2]]) for face in loaded_faces]
+        
+        scaled_centroids = [scale(centroid, 5.0, 10.0, 0.0) for centroid in centroids]
+        
+        # visualize_point_cloud(points, pointlabels, 25)
+        
+        pointlabels = np.array(pointlabels)
+        
+        c1 = KNeighborsClassifier(n_neighbors=3)
+        c1.fit(points, pointlabels)
+        ground_truth = c1.predict(scaled_centroids)
+        
+        check_labels_p = set(pointlabels)    
+        check_labels_t = set(ground_truth)
+    
         
         if self.num_points != 5000:
             
@@ -284,17 +369,100 @@ class FeaturenetSingle(Dataset):
             normals = normals[choice, :]
             pointlabels = pointlabels[choice]
             
-            # ratio = int(20000/self.num_points)
-            # if ratio > 1:
-            #     points = points[::ratio]
-            #     normals = normals[::ratio]
-            #     pointlabels = pointlabels[::ratio]
+              
+        max_length = 500
+        length = len(ground_truth) 
+        pad_length = max_length - length
+        scaled_centroids = np.concatenate((np.asarray(scaled_centroids), np.zeros((pad_length, 3))), axis = 0) 
+        ground_truth = np.pad(ground_truth, (0,pad_length)) 
+
+       
+        if self.is_normals:
+            pointdata = np.concatenate((points, normals), axis=1)
+            return pointdata, pointlabels, scaled_centroids, ground_truth, length, f"{self.stl_datapath}/{self.examples[index]}.STL"
+        else:
+            return points, pointlabels, scaled_centroids, ground_truth, length, f"{self.stl_datapath}/{self.examples[index]}.STL"
+        
+        
+    
+class FeaturenetMulti(Dataset):
+    def __init__(self, examples: list, datapath = './data/multi_featurenet', num_points = 10000, num_classes = 25, is_normals = True) -> None:
+        
+        self.datapath = datapath
+        self.num_points = num_points
+        self.num_classes = num_classes
+        self.point_datapath = f"{self.datapath}/multi_featurenet_pcd"
+        self.point_datapath_normalized = f"{self.datapath}/multi_featurenet_pcd_processed"
+        self.stl_datapath =  f"{self.datapath}/multi_featurenet_stl"
+        self.label_path = f"{self.datapath}/multi_featurenet_labels"
+        self.examples = examples
+        self.is_normals = is_normals
+        
+       
+        
+    def __len__(self):
+        return len(self.examples)
+    
+    def __getitem__(self, index):
+        
+        
+        # pcd_unprocessed = o3d.io.read_point_cloud(f"{self.point_datapath}/{self.examples[index]}.pcd")
+        # pcd_unprocessed = np.asarray(pcd_unprocessed.points)
+        pointlabels = []
+        
+        pcd = o3d.io.read_point_cloud(f"{self.point_datapath_normalized}/{self.examples[index]}.pcd")
+        
+        with open(f"{self.label_path}/{self.examples[index]}.txt") as f:
+            for line in f.readlines():
+                # strs = line.split(' ')
+                pointlabels.append(int(line) + 1)
+          
+        points = np.asarray(pcd.points)
+        normals = np.asarray(pcd.normals)
+            
+        pointlabels = np.array(pointlabels)
+        
+        # glob_mean = np.mean(pcd_unprocessed)
+        # glob_max = np.max(pcd_unprocessed)
+        # glob_min = np.min(pcd_unprocessed)
+
+        mesh = o3d.io.read_triangle_mesh(f"{self.stl_datapath}/{self.examples[index]}.STL")
+
+        vertices = np.asarray(mesh.vertices)
+        loaded_faces = np.asarray(mesh.triangles)
+        centroids = [triangle_center_3d(vertices[face[0]], vertices[face[1]], vertices[face[2]]) for face in loaded_faces]
+        
+        scaled_centroids = [scale(centroid, 5000.0, 10000.0, 0.0) for centroid in centroids]
+                        
+        
+        c1 = KNeighborsClassifier(n_neighbors=1)
+        c1.fit(points, pointlabels)
+        ground_truth = c1.predict(scaled_centroids)
+        
+        check_labels_p = set(pointlabels)    
+        check_labels_t = set(ground_truth)
+        
+        if self.num_points != 10000:
+            
+            choice = np.random.choice(len(pointlabels), self.num_points, replace=False)
+            # resample
+            points = points[choice, :]
+            normals = normals[choice, :]
+            pointlabels = pointlabels[choice]
+            
+           
+        max_length = 1800
+        length = len(ground_truth) 
+        pad_length = max_length - length
+        scaled_centroids = np.concatenate((np.asarray(scaled_centroids), np.zeros((pad_length, 3))), axis = 0) 
+        ground_truth = np.pad(ground_truth, (0,pad_length))
+        
         
         if self.is_normals:
             pointdata = np.concatenate((points, normals), axis=1)
-            return pointdata, class_encoded, pointlabels 
+            return pointdata, pointlabels, scaled_centroids, ground_truth, length, f"{self.stl_datapath}/{self.examples[index]}.STL"
         else:
-            return points, class_encoded, pointlabels 
+            return points, pointlabels, scaled_centroids, ground_truth, length, f"{self.stl_datapath}/{self.examples[index]}.STL"
 
 
 
@@ -495,12 +663,34 @@ def to_categorical(y, num_classes):
     
 if __name__ == '__main__':
     
+    mesh = o3d.io.read_triangle_mesh("./data/own/own_stl/202.stl")
+
     
-    # examples = get_example_list('./data/featurenet/featurenet_labels', f5=False)
-    # train, test = train_test_split(examples)
+    
+    examples_single = get_example_list('./data/featurenet/featurenet_labels', f5=False)
+    examples_multi = get_example_list('./data/multi_featurenet/multi_featurenet_labels', f5=False)
+    examples_own = get_example_list('./data/own/own_labels', f5=False)
+    train_single, test_single = train_test_split(examples_single)
+    train_multi, test_multi = train_test_split(examples_multi)
+    train_own, test_own = train_test_split(examples_own)    
         
-    # data = FeaturenetSingle(examples, num_points=5000)
-    # Dataloader = torch.utils.data.DataLoader(data, batch_size=1, shuffle=True)
+        
+    # data = FeaturenetSingle(test_single, num_points=1024)
+    # Dataloader = torch.utils.data.DataLoader(data, batch_size=8, shuffle=True)
+    
+    data = FeaturenetMulti(test_multi, num_points=4096)
+    Dataloader = torch.utils.data.DataLoader(data, batch_size=4, shuffle=True)
+    
+    # data = FFMaachiningModels(test_own, num_points=2048)
+    # Dataloader = torch.utils.data.DataLoader(data, batch_size=4, shuffle=True)
+    
+    
+    for pointdata, pointlabels, centroids, ground_truth, length, verteces, faces, example in Dataloader:
+        print(example)
+        for truth, l in zip(ground_truth, length):
+            print(len(truth[:l]))
+        continue
+        check = True
 
     # for _, classes, seg in Dataloader:
         
@@ -521,6 +711,9 @@ if __name__ == '__main__':
         # # w = pptk.viewer(points2[0])
         
         # break
+        
+        
+    exit()
     
     
     avg_nonzero = []

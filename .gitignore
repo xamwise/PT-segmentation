@@ -4,5 +4,6 @@ outputs/
 log/
 data/
 best_models/
-
-
+test_knn.py
+knn_data/
+*.stl

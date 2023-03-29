@@ -8,6 +8,8 @@ weight_decay: 1e-6
 normal: True
 lr_decay: 0.5
 step_size: 200
+visualize: True
+nn: 9
 
 defaults:
    #- model: Zhao
